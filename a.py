@@ -1,5 +1,7 @@
+import json
 import os
 import os.path
+import subprocess as sp
 from collections import Counter
 from pathlib import Path
 from pprint import pprint
@@ -10,9 +12,13 @@ import cyclopts
 import msgpack
 import zstd
 from pydantic import BaseModel, Field
+from tabulate import tabulate
 from tqdm import tqdm
 
 app = cyclopts.App()
+dist_folder = Path("dist")
+if not dist_folder.exists():
+    dist_folder.mkdir()
 
 
 class EatMoveInt:
@@ -93,10 +99,18 @@ def eatmove_test():
 
 
 class Move(BaseModel):
-    src: list[int]
-    des: list[int]
+    src: int
+    des: int
+    src_chess: int
+    des_chess: int
+    who: int
     comment: str | None = None  # 对应move的注解
     children: list["Move"] = Field(default_factory=list)
+
+    def to_int(self) -> int:
+        return EatMoveInt.new(
+            self.who, self.src, self.des, self.src_chess, self.des_chess
+        )._v
 
 
 class Game(BaseModel):
@@ -107,10 +121,53 @@ class Game(BaseModel):
     # 初始局面
     init_board: list[int]
     # 着法及着法的注解
-    moves: Move
+    moves: list[Move]
+
+    def serialize(self):
+        ans = {}
+        ans["start"] = json.dumps({"A": self.init_board})
+        ans["chessName"] = "ChineseChess"
+        match self.info["result"]:
+            case "1-0":
+                ans["winner"] = 2
+            case "0-1":
+                ans["winner"] = 1
+            case "1/2-1/2":
+                ans["winner"] = 3
+            case "*":
+                pass
+            case _:
+                print(self.info["result"])
+
+        ans["info"] = self.info
+        comment = {}
+        moves = []
+        parent = {}
+
+        def dfs(no: Move, pa: int):
+            my_id = len(moves)
+            moves.append(no.to_int())
+            if no.comment:
+                comment[my_id] = no.comment
+            if pa != my_id - 1:
+                parent[my_id] = pa
+            for child in no.children:
+                dfs(child, my_id)
+
+        for i in self.moves:
+            dfs(i, -1)
+
+        ans["moves"] = [str(i) for i in moves]
+        ans["comment"] = comment
+        ans["parent"] = parent
+        return ans
+
+    def save_to(self, fpath: Path):
+        with open(fpath, "w") as f:
+            json.dump(self.serialize(), f, ensure_ascii=False)
 
 
-def parse_fen(fen: cchess.ChessBoard) -> tuple[list[int], int]:
+def convert_board(fen: cchess.ChessBoard) -> list[int]:
     """
     Parse Chinese chess FEN string to board array and turn.
 
@@ -144,25 +201,48 @@ def parse_fen(fen: cchess.ChessBoard) -> tuple[list[int], int]:
     return ans
 
 
-def convert_moves(move: cchess.Move) -> Move:
+def convert_pos(p: list[int]):
+    c, r = p
+    pp = r * 9 + c
+    return pp
+
+
+def convert_move(move: cchess.Move) -> Move:
+    b = convert_board(move.board)
+    src = convert_pos(move.p_from)
+    des = convert_pos(move.p_to)
+    src_chess = b[src]
+    des_chess = b[des]
+    who = 0 if src_chess <= 7 else 1
+    assert src_chess != 0
     ans = Move(
-        src=list(move.p_from),
-        des=list(move.p_to),
+        who=who,
+        src=src,
+        des=des,
+        src_chess=src_chess,
+        des_chess=des_chess,
         comment=move.annote,
     )
 
     all_children = []
     if move.next_move:
         all_children.append(move.next_move)
-    all_children.extend(move.branchs or [])
+        if move.next_move.branchs:
+            all_children.extend([i for i in move.next_move.branchs if i])
     for x in all_children:
-        ans.children.append(convert_moves(x))
+        ans.children.append(convert_move(x))
     return ans
 
 
-def parse_game(game: cchess.Game):
-    init_board = parse_fen(game.init_board)
-    moves = convert_moves(game.first_move)
+def parse_game(game: cchess.Game) -> Game:
+    init_board = convert_board(game.init_board)
+    if not game.first_move:
+        raise Exception("no first move")
+    moves = [convert_move(game.first_move)]
+    for i in game.first_move.branchs:
+        if not i:
+            continue
+        moves.append(convert_move(i))
     return Game(
         info=game.info,
         annotate=game.annote,
@@ -171,8 +251,7 @@ def parse_game(game: cchess.Game):
     )
 
 
-@app.command()
-def books():
+def list_books() -> list[Path]:
     books = [
         Path(i)
         for i in [
@@ -187,15 +266,124 @@ def books():
     ]
     for big_book in ["残局", "全局"]:
         for book in Path(big_book).iterdir():
-            books.append(book)
-    print(books, len(books))
+            if book.is_dir():
+                books.append(book)
+    return books
+
+
+@app.command()
+def upload():
+    sp.check_call("rsync -r --progress dist/*  me:~/app/MyStatic/xq/", shell=True)
+
+
+@app.command()
+def books():
+    ans = []
+    for book in list_books():
+        book = dist_folder / (book.relative_to(Path(".")))
+        target_book_path = dist_folder / f"{book.stem}.json"
+        records = list(book.glob("**/*.json", recurse_symlinks=True))
+        ans.append([str(book), len(records)])
+
+        # 构建树形结构
+        catelog = {
+            "label": book.stem,
+            "children": [],
+        }
+
+        # 按路径分组构建树结构
+        def add_to_tree(tree: dict, path_parts: list[str], full_path: Path):
+            current = tree
+            for i, part in enumerate(path_parts):
+                # 如果是最后一个部分且是.xqf文件
+                if i == len(path_parts) - 1 and part.endswith(".json"):
+                    # 查找或创建children数组
+                    if "children" not in current:
+                        current["children"] = []
+
+                    # 添加文件节点
+                    file_node = {
+                        "label": full_path.stem,
+                        "url": str(full_path.relative_to(dist_folder)),
+                    }
+                    current["children"].append(file_node)
+                else:
+                    # 是文件夹，查找或创建文件夹节点
+                    if "children" not in current:
+                        current["children"] = []
+
+                    # 查找是否已存在该文件夹
+                    folder_found = False
+                    for child in current["children"]:
+                        if child.get("label") == part and "children" in child:
+                            current = child
+                            folder_found = True
+                            break
+
+                    # 如果没找到，创建新的文件夹节点
+                    if not folder_found:
+                        folder_node = {
+                            "label": part,
+                            "children": [],
+                        }
+                        current["children"].append(folder_node)
+                        current = folder_node
+
+        # 为每个文件添加到树中
+        for record in records:
+            parts = str(record.relative_to(book)).split("/")
+            add_to_tree(catelog, parts, record)
+
+        def sort_children(no):
+            if not no.get("children"):
+                return
+            no["children"].sort(key=lambda x: x["label"])
+            for i in no.get("children"):
+                sort_children(i)
+
+        sort_children(catelog)
+        with open(target_book_path, "w") as f:
+            json.dump(
+                {
+                    "tree": catelog,
+                    "view": "tree",
+                    "name": book.stem,
+                    "gameName": "ChineseChess",
+                },
+                f,
+                ensure_ascii=False,
+                indent=2,
+            )
+
+    ans.sort(key=lambda x: x[1], reverse=True)
+    print(tabulate(ans))
+
+
+@app.command()
+def build_dist():
+    # 批量执行转换，把转换之后的文件写入到dist目录中去
+    a = list_books()
+    all_records: list[Path] = []
+    for book in a:
+        records = list(book.glob("**/*.xqf", recurse_symlinks=True))
+        all_records.extend(records)
+    for i in tqdm(all_records, desc="正在转写xqf格式的文件"):
+        try:
+            g = load_xqf(i)
+            target_path = dist_folder / i.relative_to(".")
+            target_path = target_path.parent / (i.stem + ".json")
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            # print(target_path)
+            g.save_to(target_path)
+        except Exception as ex:
+            print(i, ex)
 
 
 @app.command()
 def parse(file: Path):
     # "未分类/NoName.XQF"
     g = parse_game(cchess.read_from_xqf(file))
-    print(g.model_dump_json())
+    print(json.dumps(g.serialize(), indent=2, ensure_ascii=False))
 
 
 @app.command()
@@ -218,7 +406,7 @@ def zstd_compress(x: dict[str, Any]):
 
 
 def zstd_game(g: Game):
-    return zstd_compress(g.model_dump())
+    return zstd_compress(g.serialize())
 
 
 def get_all_xqf_files() -> list[Path]:
