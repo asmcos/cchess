@@ -19,3 +19,6 @@ package-lock.json
 cmake-build-debug
 web-ext-artifacts
 target/
+
+
+a.json
