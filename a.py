@@ -129,15 +129,15 @@ class Game(BaseModel):
         ans["chessName"] = "ChineseChess"
         match self.info["result"]:
             case "1-0":
-                ans["winner"] = 2
-            case "0-1":
                 ans["winner"] = 1
+            case "0-1":
+                ans["winner"] = 2
             case "1/2-1/2":
                 ans["winner"] = 3
             case "*":
-                pass
+                ans["winner"] = 3
             case _:
-                print(self.info["result"])
+                print(f"Unknown result: {self.info['result']}")
 
         ans["info"] = self.info
         comment = {}
@@ -273,11 +273,39 @@ def list_books() -> list[Path]:
 
 @app.command()
 def upload():
+    """
+    把dist目录的数据上传
+    """
     sp.check_call("rsync -r --progress dist/*  me:~/app/MyStatic/xq/", shell=True)
 
 
 @app.command()
+def sync():
+    """
+    同步数据：先构建dist，再生成棋谱文件，最后上传
+    """
+    sp.check_call("python a.py build-dist", shell=True)
+    sp.check_call("python a.py books", shell=True)
+    sp.check_call("python a.py upload", shell=True)
+
+
+@app.command()
+def record_steps():
+    records = list(dist_folder.glob("**/*.json"))
+    ans = []
+    for i in tqdm(records):
+        a = json.load(open(i))
+        ans.append((str(i), len(a.get("moves") or [])))
+    ans.sort(key=lambda x: x[1], reverse=True)
+    ans = ans[:10]
+    print(tabulate(ans, headers=["棋谱", "步数"]))
+
+
+@app.command()
 def books():
+    """
+    列出所有棋谱文件的数量
+    """
     ans = []
     for book in list_books():
         book = dist_folder / (book.relative_to(Path(".")))
@@ -361,6 +389,9 @@ def books():
 
 @app.command()
 def build_dist():
+    """
+    执行最终的转换，把棋谱转成JSON，写入到dist文件夹下
+    """
     # 批量执行转换，把转换之后的文件写入到dist目录中去
     a = list_books()
     all_records: list[Path] = []
