@@ -109,7 +109,7 @@ header#gamelabel { padding: 12px 20px; border-bottom: 1px solid #4a4237; }
   display: block;
 }
 #moveTip {
-  position: absolute; top: 6px; left: 0; right: 0; text-align: center;
+  margin-top: 8px; text-align: center;
   font-size: 14px; color: #7a4a1f; font-weight: 600; pointer-events: none;
 }
 
