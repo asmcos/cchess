@@ -147,7 +147,13 @@ function moveText(m, board) {
     const steps = Math.abs(desR - srcR);
     action = (fwd ? "进" : "退") + NUM_CN[steps];
   } else {
-    action = "平" + desFile;
+    const fwd = m.who === 0 ? (desR < srcR) : (desR > srcR);
+    // 马、相/象、仕/士 斜走，不能"平"，记"进/退"+目标列
+    if (code === 2 || code === 3 || code === 4 || code === 9 || code === 10 || code === 11) {
+      action = (fwd ? "进" : "退") + desFile;
+    } else {
+      action = "平" + desFile;
+    }
   }
   return prefix ? prefix + name + action : name + srcFile + action;
 }
