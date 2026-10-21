@@ -42,6 +42,12 @@ body {
   color: var(--dim); border-radius: 6px; font-size: 13.5px; cursor: pointer;
 }
 .view-tab.active { background: var(--accent); color: #1a150f; border-color: var(--accent); font-weight: 600; }
+.toggle-side {
+  width: 100%; padding: 12px 0; margin: 0;
+  border: none; background: transparent; color: var(--accent);
+  font-size: 20px; line-height: 1; cursor: pointer; text-align: center;
+  display: none;
+}
 #catList {
   border-top: 1px solid #4a4237; padding: 8px 12px;
   flex: 1; overflow-y: auto; display: none;
@@ -182,7 +188,7 @@ header#gamelabel { padding: 12px 20px; border-bottom: 1px solid #4a4237; }
   font-size: 14px; font-weight: 700; color: var(--accent);
   padding-bottom: 8px; border-bottom: 1px solid #4a4237; margin-bottom: 8px;
 }
-#moveList { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 4px; }
+#moveList { position: relative; display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 4px; }
 .move-item {
   display: flex; align-items: center; gap: 6px;
   padding: 4px 8px; border-radius: 5px; font-size: 13.5px;
@@ -201,11 +207,12 @@ header#gamelabel { padding: 12px 20px; border-bottom: 1px solid #4a4237; }
 @media (max-width: 900px) {
   #app { flex-direction: column; height: auto; min-height: 100vh; }
   #sidebar { width: 100%; min-width: 0; max-height: 40vh; transition: max-height .25s ease; }
-  #sidebar.collapsed { max-height: 46px; overflow: hidden; }   /* 点棋谱后收起列表，仅留标签 */
+  #sidebar.collapsed { max-height: 96px; overflow: hidden; }   /* 点棋谱后收起列表，仅留标签 + 箭头按钮 */
+  .toggle-side { display: block; }   /* 手机端显示目录 收/开 按钮 */
   #main { }
   #stageRow { flex-direction: column; }
   #stage { overflow: visible; }
-  #movesPane { width: 100%; min-width: 0; border-left: none; border-top: 1px solid #4a4237; }
+  #movesPane { width: 100%; min-width: 0; border-left: none; border-top: 1px solid #4a4237; max-height: 36vh; overflow-y: auto; }   /* 手机端谱区限高，走棋时内部滚动、屏幕不动 */
   #board { width: 100%; max-width: 460px; }
   #moveList { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
   #controls button { width: 40px; height: 38px; font-size: 16px; }

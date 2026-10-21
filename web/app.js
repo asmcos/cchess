@@ -186,10 +186,14 @@ function goto(i) {
   const tip = document.getElementById("moveTip");
   // 移动端：初始局面的提示文字不显示（省空间）
   tip.textContent = cur >= 0 ? `第${cur + 1}步  ${moves[cur].text}` : (window.innerWidth <= 900 ? "" : "初始局面");
-  // 着法列表高亮 + 滚动
+  // 着法列表高亮 + 谱内滚动（只滚谱面板，页面/屏幕保持不动）
   document.querySelectorAll(".move-item").forEach(el => el.classList.toggle("current", +el.dataset.id === cur));
   const act = document.querySelector(`.move-item[data-id="${cur}"]`);
-  if (act && act.scrollIntoView) act.scrollIntoView({ block: "nearest" });
+  if (act) {
+    const pane = document.getElementById("movesPane");
+    const top = act.offsetTop - pane.clientHeight / 2 + act.offsetHeight / 2;
+    pane.scrollTop = Math.max(0, top);
+  }
   // 注解
   const cb = document.getElementById("commentBox");
   const cmt = cur >= 0 ? commentMap[cur] : null;
@@ -253,6 +257,7 @@ async function loadGame(path) {
     if (el && el.scrollIntoView) setTimeout(() => el.scrollIntoView({ block: "start" }), 60);
     const sb = document.getElementById("sidebar");
     if (sb) sb.classList.add("collapsed");
+    if (window.syncSideBtn) window.syncSideBtn();
   }
 }
 
@@ -366,6 +371,7 @@ function setView(v) {
     const sb = document.getElementById("sidebar");
     if (sb) sb.classList.remove("collapsed");
   }
+  if (window.syncSideBtn) window.syncSideBtn();
   if (v === "lib") renderTreeData();
   else renderCatTree();
 }
@@ -573,6 +579,18 @@ function init() {
   bindControls();
   document.getElementById("tabLib").onclick = () => setView("lib");
   document.getElementById("tabCat").onclick = () => setView("cat");
+  // 目录收起/展开按钮：手机端点棋谱后目录会收起，用此按钮一键展开/收起
+  window.syncSideBtn = () => {
+    const sb = document.getElementById("sidebar");
+    const b = document.getElementById("toggleSide");
+    if (b) b.textContent = sb && sb.classList.contains("collapsed") ? "▼" : "▲";
+  };
+  const sideBtn = document.getElementById("toggleSide");
+  if (sideBtn) sideBtn.onclick = () => {
+    const sb = document.getElementById("sidebar");
+    sb.classList.toggle("collapsed");
+    window.syncSideBtn();
+  };
   loadTree();
   // 从地址栏 hash 自动加载棋谱（分享链接直达同一棋谱）
   const hm = location.hash.match(/[#&]path=([^&]+)/);
