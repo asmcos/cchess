@@ -217,6 +217,25 @@ function renderMoveList() {
   });
 }
 
+// ---------- 谱间导航（上一个/下一个谱）----------
+let navList = [], navIdx = -1;
+function flatTreeFiles(root) {
+  const out = [];
+  const walk = (nd) => {
+    if (nd.children) nd.children.forEach(walk);
+    else if (nd.path) out.push(nd.path);
+  };
+  walk(root);
+  return out;
+}
+function setCtx(list, idx) { navList = list || []; navIdx = idx; updateNav(); }
+function updateNav() {
+  const p = document.getElementById("btnPrevGame");
+  const n = document.getElementById("btnNextGame");
+  if (p) p.disabled = !(navIdx > 0);
+  if (n) n.disabled = !(navIdx < navList.length - 1);
+}
+
 // ---------- 棋谱加载 ----------
 async function loadGame(path) {
   const resp = await fetch("./api/game?path=" + encodeURIComponent(path));
@@ -251,6 +270,11 @@ async function loadGame(path) {
   goto(-1);
   // 同步地址栏 hash，便于分享/讨论同一棋谱（不污染浏览器历史）
   try { history.replaceState(null, "", "#path=" + encodeURIComponent(path)); } catch (e) {}
+  // 谱间导航：定位当前谱在上下文列表中的位置，更新按钮可用性，并高亮对应列表行
+  navIdx = navList.indexOf(path);
+  updateNav();
+  document.querySelectorAll(".tree-file").forEach(el => el.classList.toggle("active", el.dataset.path === path));
+  document.querySelectorAll(".cat-game").forEach(el => el.classList.toggle("active", el.dataset.path === path));
   // 移动端：点棋谱后自动滚动到棋盘区，并把顶部列表收起（点击标签可再展开）
   if (window.innerWidth <= 900) {
     const el = document.getElementById("stageRow");
@@ -299,9 +323,12 @@ function renderTree(node, container, depth) {
       titleDiv.textContent = t;
       row.appendChild(titleDiv);
     }
+    row.dataset.path = node.path;
     row.onclick = () => {
       document.querySelectorAll(".tree-file").forEach(el => el.classList.remove("active"));
       row.classList.add("active");
+      const all = flatTreeFiles(treeData);
+      setCtx(all, all.indexOf(node.path));
       loadGame(node.path);
     };
     container.appendChild(row);
@@ -427,9 +454,12 @@ function showCatGames(l1, l2) {
     r.innerHTML = `<span class="cat-g-name">${g.name}</span>` +
       (titleMap[g.path] && titleMap[g.path] !== g.name ? `<span class="cat-g-title">${titleMap[g.path]}</span>` : "") +
       `<span class="cat-g-meta">${g.red || ""}${g.black ? (" vs " + g.black) : ""}</span>`;
+    r.dataset.path = g.path;
     r.onclick = () => {
       document.querySelectorAll(".cat-game").forEach(x => x.classList.remove("active"));
       r.classList.add("active");
+      const paths = list.map(x => x.path);
+      setCtx(paths, paths.indexOf(g.path));
       loadGame(g.path);
     };
     box.appendChild(r);
@@ -529,6 +559,10 @@ function bindControls() {
   $("btnNext").onclick = nav(() => goto(cur + 1));
   $("btnLast").onclick = nav(() => goto(moves.length - 1));
   $("btnReset").onclick = () => goto(-1);
+  const pg = document.getElementById("btnPrevGame");
+  if (pg) pg.onclick = () => { if (navIdx > 0) { navIdx--; loadGame(navList[navIdx]); } };
+  const ng = document.getElementById("btnNextGame");
+  if (ng) ng.onclick = () => { if (navIdx < navList.length - 1) { navIdx++; loadGame(navList[navIdx]); } };
   $("btnMem").onclick = () => {
     if (!moves.length) { alert("请先选择一个棋谱再进入背谱"); return; }
     if (memMode) { exitMem(); goto(-1); return; }

@@ -94,6 +94,13 @@ body {
 /* ---------- 主区 ---------- */
 #main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 header#gamelabel { padding: 12px 20px; border-bottom: 1px solid #4a4237; }
+.game-nav { display: flex; gap: 8px; margin-bottom: 6px; }
+.game-nav button {
+  padding: 5px 12px; border: 1px solid #5a5348; background: #2b2620;
+  color: var(--dim); border-radius: 6px; font-size: 13px; cursor: pointer;
+}
+.game-nav button:disabled { opacity: .4; cursor: default; }
+.game-nav button:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
 .game-title { font-size: 18px; font-weight: 600; }
 .game-internal { font-size: 13.5px; color: #ffd9a0; margin-top: 2px; }
 .game-meta { font-size: 13px; color: var(--dim); margin-top: 3px; }
