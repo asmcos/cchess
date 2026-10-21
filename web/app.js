@@ -238,6 +238,8 @@ async function loadGame(path) {
   if (data.annotate) { document.getElementById("commentBox").style.display = "block"; document.getElementById("commentBox").textContent = data.annotate; }
   renderMoveList();
   goto(-1);
+  // 同步地址栏 hash，便于分享/讨论同一棋谱（不污染浏览器历史）
+  try { history.replaceState(null, "", "#path=" + encodeURIComponent(path)); } catch (e) {}
 }
 
 // ---------- 目录树 ----------
@@ -553,5 +555,8 @@ function init() {
   document.getElementById("tabLib").onclick = () => setView("lib");
   document.getElementById("tabCat").onclick = () => setView("cat");
   loadTree();
+  // 从地址栏 hash 自动加载棋谱（分享链接直达同一棋谱）
+  const hm = location.hash.match(/[#&]path=([^&]+)/);
+  if (hm) { const p = decodeURIComponent(hm[1]); setTimeout(() => loadGame(p), 0); }
 }
 init();
