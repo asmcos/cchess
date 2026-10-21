@@ -208,7 +208,7 @@ function renderMoveList() {
 
 // ---------- 棋谱加载 ----------
 async function loadGame(path) {
-  const resp = await fetch("/api/game?path=" + encodeURIComponent(path));
+  const resp = await fetch("./api/game?path=" + encodeURIComponent(path));
   const data = await resp.json();
   if (data.error) { alert(data.error); return; }
   const { init, arr } = buildMoves(data);
@@ -314,9 +314,9 @@ function renderTreeData() {
 }
 async function loadTree() {
   const [tresp, iresp, titresp] = await Promise.all([
-    fetch("/api/tree"),
-    fetch("/api/index").then(r => r.json()).catch(() => ({ games: [] })),
-    fetch("/api/title").then(r => r.json()).catch(() => ({})),
+    fetch("./api/tree"),
+    fetch("./api/index").then(r => r.json()).catch(() => ({ games: [] })),
+    fetch("./api/title").then(r => r.json()).catch(() => ({})),
   ]);
   treeData = await tresp.json();
   titleMap = titresp && !titresp.error ? titresp : {};
@@ -449,7 +449,7 @@ function enterMem(startN) {
 }
 function openMemModal() {
   const from = document.getElementById("memFrom"), lim = document.getElementById("memLimit");
-  from.value = 1; lim.value = Math.min(15, moves.length);
+  from.value = 1; lim.value = 15;                                // 统一默认 15（短棋谱在确认时按实际步数截断）
   from.disabled = true; lim.disabled = false;                 // 默认随机
   document.getElementById("memRand").checked = true;          // 默认勾选随机
   document.getElementById("memModal").style.display = "flex";
