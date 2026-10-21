@@ -1,3 +1,8 @@
+# 项目说明
+本项目是基于 https://github.com/zhengguozi/chess_book/ 布局上 ，增加的打谱和背谱功能
+主要目的是帮助棋友背诵棋谱
+
+
 一个来自于网络的中国象棋棋谱合集。
 
 pip install cchess

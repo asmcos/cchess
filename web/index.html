@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中国象棋棋谱浏览器</title>
+<link rel="stylesheet" href="chess.css">
+</head>
+<body>
+<div id="app">
+  <!-- 侧栏：目录 -->
+  <aside id="sidebar">
+    <div class="view-tabs">
+      <button id="tabLib" class="view-tab active">棋谱库</button>
+      <button id="tabCat" class="view-tab">分类</button>
+    </div>
+    <div class="side-head">
+      <span class="logo">♟</span>
+      <span class="side-title">棋谱库</span>
+    </div>
+    <div class="filter-bar">
+      <select id="openingFilter"><option value="">开局类型</option></select>
+      <span id="filterCount"></span>
+    </div>
+    <div id="tree"></div>
+    <div id="catList"></div>
+  </aside>
+
+  <!-- 主区 -->
+  <main id="main">
+    <header id="gamelabel">
+      <div class="game-title" id="gameTitle">请从左侧选择一个棋谱</div>
+      <div class="game-internal" id="gameInternal"></div>
+      <div class="game-meta" id="gameMeta"></div>
+    </header>
+
+    <div id="stage">
+      <div id="boardWrap">
+        <svg id="board" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div id="moveTip"></div>
+      </div>
+
+      <div id="controls">
+        <button id="btnFirst" title="跳到开头">⏮</button>
+        <button id="btnPrev" title="上一步">◀</button>
+        <span id="stepInfo">0 / 0</span>
+        <button id="btnNext" title="下一步">▶</button>
+        <button id="btnLast" title="跳到结尾">⏭</button>
+        <button id="btnPlay" title="自动播放">▶▶</button>
+        <button id="btnReset" title="重置棋盘">⟲</button>
+        <button id="btnMem" title="背谱模式：自己走棋，系统校验对错">背</button>
+        <button id="btnFlip" onclick="flipView()" title="切换红方/黑方视角">红</button>
+      </div>
+
+      <div id="memTip"></div>
+
+      <div id="commentBox"></div>
+    </div>
+
+    <!-- 着法列表 -->
+    <div id="movesPane">
+      <div class="pane-head">着法</div>
+      <div id="moveList"></div>
+    </div>
+  </main>
+</div>
+
+<div id="memModal" class="modal-mask" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-title">背谱起点设置</div>
+    <label class="modal-row"><input type="checkbox" id="memRand"> 随机开始</label>
+    <div class="modal-row">
+      <label for="memLimit">多少步以内随机：</label>
+      <input type="number" id="memLimit" value="15" min="1" max="200">
+    </div>
+    <div class="modal-row">
+      <label for="memFrom">从第几步开始：</label>
+      <input type="number" id="memFrom" value="1" min="1" max="200">
+    </div>
+    <div class="modal-btns">
+      <button id="memCancel" type="button">取消</button>
+      <button id="memOk" type="button">开始背谱</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>
