@@ -197,9 +197,16 @@ header#gamelabel { padding: 12px 20px; border-bottom: 1px solid #4a4237; }
 #tree::-webkit-scrollbar, #movesPane::-webkit-scrollbar { width: 8px; }
 #tree::-webkit-scrollbar-thumb, #movesPane::-webkit-scrollbar-thumb { background: #5a5348; border-radius: 4px; }
 
+/* ---------- 移动端（窄屏）---------- */
 @media (max-width: 900px) {
-  #app { flex-direction: column; height: auto; }
-  #sidebar { width: 100%; min-width: 0; max-height: 30vh; }
+  #app { flex-direction: column; height: auto; min-height: 100vh; }
+  #sidebar { width: 100%; min-width: 0; max-height: 40vh; transition: max-height .25s ease; }
+  #sidebar.collapsed { max-height: 46px; overflow: hidden; }   /* 点棋谱后收起列表，仅留标签 */
   #main { }
-  #movesPane { width: 220px; min-width: 220px; }
+  #stageRow { flex-direction: column; }
+  #stage { overflow: visible; }
+  #movesPane { width: 100%; min-width: 0; border-left: none; border-top: 1px solid #4a4237; }
+  #board { width: 100%; max-width: 460px; }
+  #moveList { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+  #controls button { width: 40px; height: 38px; font-size: 16px; }
 }
