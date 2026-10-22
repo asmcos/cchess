@@ -37,7 +37,7 @@ ECCO 五大类在首页做成目录：
 - **D** 顺炮与列炮，含半途列炮
 - **E** 仙人指路：对卒底炮、对兵局、转中炮
 
-点目录里的任一类，都会进入棋谱页，再按书或按开局往下翻。首页棋盘画的是中炮对屏风马的前两回合：红方炮二平五、马二进三，黑方上屏风马。
+点目录里的任一类，进入开局目录 [https://xqbook.cn/ecco](https://xqbook.cn/ecco)。这份目录按 [ECCO 2004 目录](https://www.xqbase.com/ecco/ecco_contents.htm) 整理到十位分组，两位数字的逐条着法在各类页面：[A](https://xqbook.cn/ecco/a)、[B](https://xqbook.cn/ecco/b)、[C](https://xqbook.cn/ecco/c)、[D](https://xqbook.cn/ecco/d)、[E](https://xqbook.cn/ecco/e)。要背谱再去棋谱页。首页棋盘画的是中炮对屏风马的前两回合：红方炮二平五、马二进三，黑方上屏风马。
 
 页脚「友情链接」指向象棋百科全书 [www.xqbase.com](https://www.xqbase.com/)。
 
@@ -67,8 +67,10 @@ python3 server.py
 web/
 ├── index.html     # 首页
 ├── home.css       # 首页样式
+├── ecco.html      # 开局目录
+├── ecco/          # A–E 逐条编号
 ├── qipu.html      # 棋谱页
 ├── chess.css
 └── app.js
-server.py          # / 首页，/qipu 棋谱页
+server.py          # / 首页，/ecco 开局，/qipu 棋谱页
 ```

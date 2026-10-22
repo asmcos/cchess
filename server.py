@@ -11,6 +11,8 @@
 
 页面:
     GET /                        -> web/index.html  站点首页
+    GET /ecco                    -> web/ecco.html   ECCO 开局目录
+    GET /ecco/a … /ecco/e        -> web/ecco/a.html … e.html  逐条编号
     GET /qipu                    -> web/qipu.html   棋谱（二级页）
 
 API:
@@ -260,6 +262,12 @@ class Handler(BaseHTTPRequestHandler):
         # 首页是 / ，棋谱是二级页 /qipu。
         if path in ("/", ""):
             path = "/index.html"
+        elif path in ("/ecco", "/ecco/"):
+            path = "/ecco.html"
+        elif path.startswith("/ecco/"):
+            letter = path.strip("/").split("/")[-1]
+            if letter in "abcde":
+                path = f"/ecco/{letter}.html"
         elif path in ("/qipu", "/qipu/"):
             path = "/qipu.html"
 
