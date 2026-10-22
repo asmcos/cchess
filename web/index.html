@@ -3,95 +3,204 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>中国象棋棋谱浏览器</title>
-<link rel="stylesheet" href="chess.css">
+<title>象棋棋书 · xqbook.cn</title>
+<meta name="description" content="xqbook 是代码开源、使用免费的中国象棋背谱打谱软件，也是一个学棋社区。延续 ECCO 开局编号，帮助初学者按类记谱。">
+<link rel="stylesheet" href="home.css">
 </head>
 <body>
-<div id="app">
-  <!-- 侧栏：目录 -->
-  <aside id="sidebar">
-    <div class="view-tabs">
-      <button id="tabLib" class="view-tab active">棋谱库</button>
-      <button id="tabCat" class="view-tab">分类</button>
-    </div>
-    <button id="toggleSide" class="toggle-side" title="展开/收起目录">▲</button>
-    <div class="side-head">
-      <span class="logo">♟</span>
-      <span class="side-title">棋谱库</span>
-    </div>
-    <div class="filter-bar">
-      <select id="openingFilter"><option value="">开局类型</option></select>
-      <span id="filterCount"></span>
-    </div>
-    <div id="tree"></div>
-    <div id="catList"></div>
-  </aside>
+<div class="sheet">
+  <header class="top">
+    <a class="brand" href="/">
+      <span class="seal">谱</span>
+      <span>
+        <strong>象棋棋书</strong>
+        <em>xqbook.cn</em>
+      </span>
+    </a>
+    <nav class="nav">
+      <a href="/" aria-current="page">首页</a>
+      <a href="/qipu">棋谱</a>
+      <a href="#ecco">开局</a>
+      <a href="#memorize">背谱</a>
+    </nav>
+  </header>
 
-  <!-- 主区 -->
-  <main id="main">
-    <header id="gamelabel">
-      <div class="game-nav">
-        <button id="btnPrevGame" title="上一个谱">◀ 上一谱</button>
-        <button id="btnNextGame" title="下一个谱">下一谱 ▶</button>
+  <section class="hero">
+    <div>
+      <p class="eyebrow">延续 ECCO · 写成棋书</p>
+      <h1>把中国象棋的开局<br>收成可以背的谱</h1>
+      <p class="lead">xqbook 是代码开源、使用免费的背谱打谱软件，同时也是一个学棋社区。象棋百科全书用 ECCO 给开局编过号：一个字母加两位数字，五大类从飞相、起马写到中炮、顺炮和仙人指路。编号回答「这盘棋属于哪一种」。初学者接着要问的是：主变怎么走，走到哪一步该记住。沿着这套编号把谱、变例和注释收到一处，让人按类翻、按步背。</p>
+      <div class="actions">
+        <a class="btn primary" href="/qipu">进入棋谱</a>
+        <a class="btn ghost" href="#ecco">先看五大类</a>
       </div>
-      <div class="game-title" id="gameTitle">请从左侧选择一个棋谱</div>
-      <div class="game-internal" id="gameInternal"></div>
-      <div class="game-meta" id="gameMeta"></div>
-    </header>
-
-    <div id="stageRow">
-    <div id="stage">
-      <div id="boardWrap">
-        <svg id="board" xmlns="http://www.w3.org/2000/svg"></svg>
-        <div id="moveTip"></div>
+    </div>
+    <div class="hero-side">
+      <div class="board-card" aria-hidden="true">
+        <svg viewBox="0 0 224 242" xmlns="http://www.w3.org/2000/svg">
+          <rect x="6" y="4" width="212" height="234" rx="3" fill="none" stroke="#6b4124" stroke-width="1.6"/>
+          <g stroke="#6b4124" stroke-width="1" fill="none">
+            <path d="M16 14H192M16 36H192M16 58H192M16 80H192M16 102H192M16 124H192M16 146H192M16 168H192M16 190H192M16 212H192"/>
+            <path d="M16 14V212M192 14V212"/>
+            <path d="M38 14V102M60 14V102M82 14V102M104 14V102M126 14V102M148 14V102M170 14V102"/>
+            <path d="M38 124V212M60 124V212M82 124V212M104 124V212M126 124V212M148 124V212M170 124V212"/>
+            <path d="M82 14L126 58M126 14L82 58M82 168L126 212M126 168L82 212"/>
+          </g>
+          <text x="48" y="118" fill="#6b4124" font-size="11" font-family="Songti SC, STSong, serif">楚河</text>
+          <text x="132" y="118" fill="#6b4124" font-size="11" font-family="Songti SC, STSong, serif">汉界</text>
+          <g font-family="Songti SC, STSong, SimSun, serif" font-size="10" text-anchor="middle">
+            <g fill="#1c1612">
+              <g transform="translate(16 14)"><circle r="7.5" fill="#f7f3ea" stroke="#1c1612"/><text y="4">車</text></g>
+              <g transform="translate(60 14)"><circle r="7.5" fill="#f7f3ea" stroke="#1c1612"/><text y="4">象</text></g>
+              <g transform="translate(82 14)"><circle r="7.5" fill="#f7f3ea" stroke="#1c1612"/><text y="4">士</text></g>
+              <g transform="translate(104 14)"><circle r="7.5" fill="#f7f3ea" stroke="#1c1612"/><text y="4">將</text></g>
+              <g transform="translate(126 14)"><circle r="7.5" fill="#f7f3ea" stroke="#1c1612"/><text y="4">士</text></g>
+              <g transform="translate(148 14)"><circle r="7.5" fill="#f7f3ea" stroke="#1c1612"/><text y="4">象</text></g>
+              <g transform="translate(192 14)"><circle r="7.5" fill="#f7f3ea" stroke="#1c1612"/><text y="4">車</text></g>
+              <g transform="translate(60 58)"><circle r="7.5" fill="#f7f3ea" stroke="#1c1612"/><text y="4">馬</text></g>
+              <g transform="translate(148 58)"><circle r="7.5" fill="#f7f3ea" stroke="#1c1612"/><text y="4">馬</text></g>
+              <g transform="translate(38 58)"><circle r="7.5" fill="#f7f3ea" stroke="#1c1612"/><text y="4">炮</text></g>
+              <g transform="translate(170 58)"><circle r="7.5" fill="#f7f3ea" stroke="#1c1612"/><text y="4">炮</text></g>
+              <g transform="translate(16 80)"><circle r="7.5" fill="#f7f3ea" stroke="#1c1612"/><text y="4">卒</text></g>
+              <g transform="translate(60 80)"><circle r="7.5" fill="#f7f3ea" stroke="#1c1612"/><text y="4">卒</text></g>
+              <g transform="translate(104 80)"><circle r="7.5" fill="#f7f3ea" stroke="#1c1612"/><text y="4">卒</text></g>
+              <g transform="translate(148 80)"><circle r="7.5" fill="#f7f3ea" stroke="#1c1612"/><text y="4">卒</text></g>
+              <g transform="translate(192 80)"><circle r="7.5" fill="#f7f3ea" stroke="#1c1612"/><text y="4">卒</text></g>
+            </g>
+            <g fill="#9d2b24">
+              <g transform="translate(16 146)"><circle r="7.5" fill="#f8efe0" stroke="#9d2b24"/><text y="4">兵</text></g>
+              <g transform="translate(60 146)"><circle r="7.5" fill="#f8efe0" stroke="#9d2b24"/><text y="4">兵</text></g>
+              <g transform="translate(104 146)"><circle r="7.5" fill="#f8efe0" stroke="#9d2b24"/><text y="4">兵</text></g>
+              <g transform="translate(148 146)"><circle r="7.5" fill="#f8efe0" stroke="#9d2b24"/><text y="4">兵</text></g>
+              <g transform="translate(192 146)"><circle r="7.5" fill="#f8efe0" stroke="#9d2b24"/><text y="4">兵</text></g>
+              <g transform="translate(38 168)"><circle r="7.5" fill="#f8efe0" stroke="#9d2b24"/><text y="4">炮</text></g>
+              <g transform="translate(104 168)"><circle r="7.5" fill="#f8efe0" stroke="#9d2b24" stroke-width="1.6"/><text y="4">炮</text></g>
+              <g transform="translate(148 168)"><circle r="7.5" fill="#f8efe0" stroke="#9d2b24" stroke-width="1.6"/><text y="4">馬</text></g>
+              <g transform="translate(16 212)"><circle r="7.5" fill="#f8efe0" stroke="#9d2b24"/><text y="4">車</text></g>
+              <g transform="translate(38 212)"><circle r="7.5" fill="#f8efe0" stroke="#9d2b24"/><text y="4">馬</text></g>
+              <g transform="translate(60 212)"><circle r="7.5" fill="#f8efe0" stroke="#9d2b24"/><text y="4">相</text></g>
+              <g transform="translate(82 212)"><circle r="7.5" fill="#f8efe0" stroke="#9d2b24"/><text y="4">仕</text></g>
+              <g transform="translate(104 212)"><circle r="7.5" fill="#f8efe0" stroke="#9d2b24"/><text y="4">帥</text></g>
+              <g transform="translate(126 212)"><circle r="7.5" fill="#f8efe0" stroke="#9d2b24"/><text y="4">仕</text></g>
+              <g transform="translate(148 212)"><circle r="7.5" fill="#f8efe0" stroke="#9d2b24"/><text y="4">相</text></g>
+              <g transform="translate(192 212)"><circle r="7.5" fill="#f8efe0" stroke="#9d2b24"/><text y="4">車</text></g>
+            </g>
+          </g>
+        </svg>
+        <div class="board-caption">
+          <b>C · 中炮对屏风马</b>
+          <span>炮二平五，马二进三</span>
+        </div>
       </div>
+      <p class="note">编号沿用 ECCO 2004。</p>
+    </div>
+  </section>
 
-      <div id="controls">
-        <button id="btnFirst" title="跳到开头">⏮</button>
-        <button id="btnPrev" title="上一步">◀</button>
-        <span id="stepInfo">0 / 0</span>
-        <button id="btnNext" title="下一步">▶</button>
-        <button id="btnLast" title="跳到结尾">⏭</button>
-        <button id="btnPlay" title="自动播放">▶▶</button>
-        <button id="btnReset" title="重置棋盘">⟲</button>
-        <button id="btnMem" title="背谱模式：自己走棋，系统校验对错">背</button>
-        <button id="btnFlip" onclick="flipView()" title="切换红方/黑方视角">红</button>
+  <section class="section" id="xiangqi">
+    <h2>中国象棋</h2>
+    <p class="prose">中国象棋是两个人对下的棋。棋盘由九条竖线、十条横线交叉而成，中间隔着楚河汉界。双方各有十六子：车、马、炮、相（象）、仕（士）、帅（将）和兵（卒）。红方先走，双方轮流走子，把对方的将或帅将死即胜。开局有定式，残局有杀法，所以学棋常常从记谱开始。</p>
+  </section>
+
+  <section class="section" id="about">
+    <h2>这本棋书做三件事</h2>
+    <p class="sub">分类沿用已有的开局编号。棋书补上的是谱，以及一条能跟着走完的背诵路径。</p>
+    <div class="pillars">
+      <article class="pillar">
+        <div class="idx">其一</div>
+        <h3>延续编号</h3>
+        <p>沿用<a href="https://www.xqbase.com/">象棋百科全书</a>的 ECCO：A 到 E 五大类，一个字母、两位数字。开局仍叫原来的名字。</p>
+      </article>
+      <article class="pillar">
+        <div class="idx">其二</div>
+        <h3>写成棋书</h3>
+        <p>编号下面挂上棋谱、主变和讲解。同一类开局收在一处，翻的是书，不只是一张分类表。</p>
+      </article>
+      <article class="pillar">
+        <div class="idx">其三</div>
+        <h3>帮人背谱</h3>
+        <p>初学者在棋盘上自己走。走对了往下，走错了停下。从认类开始，把一条主变记到手上。</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section" id="ecco">
+    <h2>目录 · ECCO 五大类</h2>
+    <p class="sub">分类说明见<a href="https://www.xqbase.com/ecco/ecco_intro.htm">中国象棋开局编号</a>。点下面任一类，都进入棋谱页，再按书或按开局往下翻。</p>
+    <div class="catalog">
+      <a class="row" href="/qipu">
+        <span class="letter">A</span>
+        <div>
+          <h3>非中炮类</h3>
+          <div class="range">不含仙人指路</div>
+        </div>
+        <div class="tags">飞相局 · 起马局 · 仕角炮 · 过宫炮</div>
+      </a>
+      <a class="row" href="/qipu">
+        <span class="letter">B</span>
+        <div>
+          <h3>中炮对反宫马及其他</h3>
+          <div class="range">屏风马、顺炮、列炮另列</div>
+        </div>
+        <div class="tags">单提马 · 左三步虎 · 反宫马 · 五六炮 · 五七炮</div>
+      </a>
+      <a class="row" href="/qipu">
+        <span class="letter">C</span>
+        <div>
+          <h3>中炮对屏风马</h3>
+          <div class="range">现代布局里最大的一类</div>
+        </div>
+        <div class="tags">过河车 · 两头蛇 · 平炮兑车 · 五六炮 · 五七炮</div>
+      </a>
+      <a class="row" href="/qipu">
+        <span class="letter">D</span>
+        <div>
+          <h3>顺炮与列炮</h3>
+          <div class="range">含半途列炮</div>
+        </div>
+        <div class="tags">顺炮直车对横车 · 横车对直车 · 列炮</div>
+      </a>
+      <a class="row" href="/qipu">
+        <span class="letter">E</span>
+        <div>
+          <h3>仙人指路</h3>
+          <div class="range">以兵起步的开局</div>
+        </div>
+        <div class="tags">对卒底炮 · 对兵局 · 转中炮</div>
+      </a>
+    </div>
+  </section>
+
+  <section class="section" id="memorize">
+    <h2>初学者怎么背</h2>
+    <p class="sub">先把开局认成一类，再只背这一类里的主变。不要一上来把整本谱铺开。</p>
+    <div class="steps">
+      <div class="step">
+        <b>1 认类</b>
+        <span>红方第一步落在哪，黑方怎么应，对上 A–E 里的名字。名字对了，后面的谱才不会串。</span>
       </div>
-
-      <div id="memTip"></div>
-
-      <div id="commentBox"></div>
+      <div class="step">
+        <b>2 看主变</b>
+        <span>每类先走最常见的一条。看棋盘上的着法，也看旁边的注释，知道这一步在防什么。</span>
+      </div>
+      <div class="step">
+        <b>3 自己走</b>
+        <span>关掉提示，从约定的一步开始自己摆。走错就停在那一步，回到谱上再记一次。</span>
+      </div>
     </div>
+    <div class="enter">
+      <p><strong>棋谱是这本书的内页</strong>按书翻、按开局找，也可以打开背谱，自己把主变走完。</p>
+      <a class="btn primary" href="/qipu">去棋谱里背</a>
+    </div>
+  </section>
 
-    <!-- 着法列表 -->
-    <div id="movesPane">
-      <div class="pane-head">着法</div>
-      <div id="moveList"></div>
+  <footer class="foot">
+    <div>象棋棋书 · xqbook.cn<br>在 ECCO 之上整理棋谱，供初学者背谱。</div>
+    <div class="friends">
+      <span>友情链接</span>
+      <a href="https://www.xqbase.com/" target="_blank" rel="noopener">象棋百科全书</a>
+      <a href="https://www.xqbase.com/" target="_blank" rel="noopener">www.xqbase.com</a>
     </div>
-    </div>
-  </main>
+  </footer>
 </div>
-
-<div id="memModal" class="modal-mask" style="display:none;">
-  <div class="modal-box">
-    <div class="modal-title">背谱起点设置</div>
-    <label class="modal-row"><input type="checkbox" id="memRand"> 随机开始</label>
-    <div class="modal-row">
-      <label for="memLimit">多少步以内随机：</label>
-      <input type="number" id="memLimit" value="15" min="1" max="200">
-    </div>
-    <div class="modal-row">
-      <label for="memFrom">从第几步开始：</label>
-      <input type="number" id="memFrom" value="1" min="1" max="200">
-    </div>
-    <div class="modal-btns">
-      <button id="memCancel" type="button">取消</button>
-      <button id="memOk" type="button">开始背谱</button>
-    </div>
-  </div>
-</div>
-
-<div id="toast"></div>
-<script src="app.js"></script>
 </body>
 </html>

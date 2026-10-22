@@ -6,11 +6,14 @@
 复用项目既有 a.py 的 cchess 解析逻辑（只依赖 cchess + 标准库，无额外 pip 依赖）。
 
 用法:
-    python3 server.py [port]        # 默认端口 8000
-然后浏览器打开 http://127.0.0.1:8000/
+    python3 server.py [port]        # 默认端口 8945
+然后浏览器打开 http://127.0.0.1:8945/
+
+页面:
+    GET /                        -> web/index.html  站点首页
+    GET /qipu                    -> web/qipu.html   棋谱（二级页）
 
 API:
-    GET /                        -> web/index.html
     GET /api/tree                -> 目录树（按项目分类扫描 .xqf）
     GET /api/game?path=<相对路径.xqf> -> 解析该棋谱为 JSON
 """
@@ -254,9 +257,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"error": f"解析失败: {ex}"})
             return
 
-        # 静态文件
-        if path == "/" or path == "":
+        # 首页是 / ，棋谱是二级页 /qipu。
+        if path in ("/", ""):
             path = "/index.html"
+        elif path in ("/qipu", "/qipu/"):
+            path = "/qipu.html"
+
+        # 静态文件
         fp = os.path.normpath(os.path.join(WEB, path.lstrip("/")))
         if not fp.startswith(WEB) or not os.path.isfile(fp):
             self._send(404, b"not found", "text/plain; charset=utf-8")
@@ -271,9 +278,9 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     import sys
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8945
     server = ThreadingHTTPServer(("0.0.0.0", port), Handler)
-    print(f"中国象棋棋谱浏览器已启动: http://127.0.0.1:{port}/")
+    print(f"象棋棋书已启动: http://127.0.0.1:{port}/  棋谱: http://127.0.0.1:{port}/qipu")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

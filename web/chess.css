@@ -11,12 +11,41 @@
 }
 html, body { height: 100%; }
 body {
+  display: flex; flex-direction: column;
   font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
   background: var(--bg);
   color: var(--text);
 }
 
-#app { display: flex; height: 100vh; overflow: hidden; }
+.sitebar {
+  flex: none;
+  height: 48px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px;
+  background: #1c1814;
+  border-bottom: 1px solid #4a4237;
+}
+.site-brand {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--accent); text-decoration: none;
+  font-weight: 600; letter-spacing: .12em;
+}
+.site-seal {
+  width: 26px; height: 26px;
+  display: grid; place-items: center;
+  background: #b4332a; color: #f6efe4;
+  font-family: "Songti SC", "STSong", "SimSun", serif;
+  font-size: 15px; letter-spacing: 0;
+}
+.site-nav { display: flex; gap: 4px; }
+.site-nav a {
+  color: var(--dim); text-decoration: none;
+  font-size: 14px; padding: 6px 12px; border-radius: 999px;
+}
+.site-nav a:hover { color: var(--accent); }
+.site-nav a[aria-current="page"] { color: #1a150f; background: var(--accent); font-weight: 600; }
+
+#app { display: flex; flex: 1; min-height: 0; overflow: hidden; }
 
 /* ---------- 侧栏 ---------- */
 #sidebar {
@@ -212,9 +241,10 @@ header#gamelabel { padding: 12px 20px; border-bottom: 1px solid #4a4237; }
 
 /* ---------- 移动端（窄屏）---------- */
 @media (max-width: 900px) {
-  #app { flex-direction: column; height: auto; min-height: 100vh; }
+  body { height: auto; }
+  #app { flex-direction: column; flex: none; height: auto; min-height: calc(100vh - 48px); overflow: visible; }
   #sidebar { width: 100%; min-width: 0; max-height: 40vh; transition: max-height .25s ease; }
-  #sidebar.collapsed { max-height: 96px; overflow: hidden; }   /* 点棋谱后收起列表，仅留标签 + 箭头按钮 */
+  #sidebar.collapsed { max-height: 96px; overflow: hidden; }   /* 点棋谱后收起列表，仅留标签和箭头 */
   .toggle-side { display: block; }   /* 手机端显示目录 收/开 按钮 */
   #main { }
   #stageRow { flex-direction: column; }
