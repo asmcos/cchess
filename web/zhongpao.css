@@ -1,0 +1,139 @@
+.play {
+  display: grid;
+  grid-template-columns: minmax(280px, 440px) minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+  padding-top: 8px;
+}
+
+.board-col { position: sticky; top: 12px; }
+
+.board-frame {
+  background: #e8b866;
+  border: 1px solid #c99a4a;
+  border-radius: 6px;
+  padding: 8px;
+}
+
+#board { display: block; width: 100%; height: auto; }
+
+.step-info {
+  margin: 12px 0 8px;
+  color: var(--cinnabar-deep);
+  font-family: "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", serif;
+  font-size: 18px;
+}
+
+.play-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.play-btns button {
+  padding: 7px 12px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  background: transparent;
+  border: 1px solid #c9b496;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.play-btns button:hover { border-color: var(--cinnabar); color: var(--cinnabar-deep); }
+
+.path {
+  margin-top: 12px;
+  color: var(--ink-soft);
+  font-family: "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", serif;
+  font-size: 16px;
+  line-height: 1.8;
+}
+
+.path-step { white-space: nowrap; }
+.path-step i {
+  font-style: normal;
+  margin-right: 4px;
+  padding: 0 5px;
+  border-radius: 3px;
+  font-family: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.path-step.red i { color: #fff; background: var(--cinnabar); }
+.path-step.black i { color: var(--paper); background: var(--ink); }
+.path-step.red b { color: var(--cinnabar-deep); }
+.path-step.black b { color: var(--ink); }
+.path-arrow { margin: 0 5px; color: var(--gold); }
+
+.ply {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.ply-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  letter-spacing: .12em;
+}
+
+.who {
+  padding: 0 6px;
+  border-radius: 3px;
+  font-size: 12px;
+  letter-spacing: .08em;
+  line-height: 1.6;
+}
+.who.red { color: #fff; background: var(--cinnabar); }
+.who.black { color: var(--paper); background: var(--ink); }
+
+.fork {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 7px 10px;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.fork b {
+  font-family: "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", serif;
+  font-weight: 700;
+}
+
+.fork .meta { color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+
+.fork.dim {
+  color: #b5a690;
+  border-color: #eadfcd;
+}
+.fork.dim b { color: #b5a690; font-weight: 500; }
+.fork.dim .meta { color: #c9baa6; }
+
+.fork.on.red {
+  border-color: var(--cinnabar);
+  background: rgba(180, 51, 42, .1);
+  box-shadow: inset 3px 0 0 var(--cinnabar);
+}
+.fork.on.black {
+  border-color: var(--ink);
+  background: rgba(34, 25, 16, .06);
+  box-shadow: inset 3px 0 0 var(--ink);
+}
+
+.fork.here { outline: 2px solid var(--gold); outline-offset: 1px; }
+
+@media (max-width: 800px) {
+  .play { grid-template-columns: 1fr; }
+  .board-col { position: static; }
+}
