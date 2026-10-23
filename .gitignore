@@ -25,3 +25,6 @@ a.json
 
 
 dist/
+
+# 开局分类库，由 python3 build_cat.py 在本机生成，不提交
+catalog.db

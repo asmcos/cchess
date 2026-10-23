@@ -226,6 +226,49 @@ OPENING2_TYPES = [
 ]
 
 
+def classify_line(board, steps, kind=1):
+    """给一条主变分类。board 是翻转后的 90 格，steps 是 [(src, des), ...]。"""
+    if not steps:
+        if kind in (2, 3):
+            return "无着法", "残局"
+        return "无着法", "无着法"
+    src, des = steps[0]
+    sc = board[src] if 0 <= src < 90 else 0
+    dc = des % 9
+    if sc == 6:
+        opening = "中炮局" if dc == 4 else "过宫炮局" if dc == 3 else "仕角炮局" if dc == 5 else "其它炮局"
+    elif sc == 2:
+        opening = "起马局"
+    elif sc == 7:
+        opening = "仙人指路"
+    elif sc == 3:
+        opening = "飞相局"
+    elif sc == 4:
+        opening = "上士局"
+    else:
+        opening = "其它开局"
+    if kind in (2, 3):
+        return opening, "残局"
+    played = []
+    grid = board[:]
+    for origin, target in steps[:8]:
+        if not (0 <= origin < 90 and 0 <= target < 90):
+            break
+        played.append((origin, target, grid[origin]))
+        grid[target] = grid[origin]
+        grid[origin] = 0
+    if opening == "中炮局":
+        return opening, _detect_zhongpao(played)
+    base = {
+        "中炮局": "中炮", "仙人指路": "仙人指路", "起马局": "起马",
+        "飞相局": "飞相", "过宫炮局": "过宫炮", "仕角炮局": "仕角炮", "上士局": "上士",
+    }.get(opening, opening)
+    reply = _black_first_reply(played)
+    if opening == "仙人指路" and reply == "挺卒":
+        return opening, "仙人指路对卒底炮"
+    return opening, f"{base}对{reply}"
+
+
 if __name__ == "__main__":
     # 自测：读指定棋谱输出开局
     import sys, glob

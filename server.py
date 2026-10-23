@@ -16,14 +16,18 @@
     GET /qipu                    -> web/qipu.html   棋谱（二级页）
 
 API:
-    GET /api/tree                -> 目录树（按项目分类扫描 .xqf）
+    GET /api/tree?path=&offset=&limit=  -> 某一层目录（文件夹一次给全，棋谱按页给）
     GET /api/game?path=<相对路径.xqf> -> 解析该棋谱为 JSON
 """
 import json
 import os
+import re
+import sqlite3
+import threading
+import time
 import cchess
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse, unquote, unquote_plus
+from urllib.parse import parse_qs, urlparse, unquote, unquote_plus
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(ROOT, "web")
@@ -32,7 +36,8 @@ WEB = os.path.join(ROOT, "web")
 # 目录分类（与 a.py 的 list_books 保持一致）
 # ---------------------------------------------------------------------------
 TOP_BOOKS = [
-    "比赛对局", "布局", "大师专集", "近代国手名局",
+    "比赛对局", "布局", "中局", "排局", "名局",
+    "大师专集", "近代国手名局",
     "让子局", "实战中局夺子取胜技巧150局", "未分类",
 ]
 GROUP_BOOKS = {"残局", "全局"}  # 其子目录为“一本书”
@@ -104,8 +109,12 @@ def parse_game_to_json(game):
     comment = {}
     parent = {}
 
-    # 迭代栈遍历（避免深链棋谱触发 Python 递归深度上限，并用 seen 防循环引用导致的死循环）
-    stack = [(game.first_move, -1, init)] if game.first_move else []
+    # 迭代栈遍历。变着是「这一步的另一种走法」，挂在父着上，用父着之后的局面。
+    # 主变先入栈后弹出，所以编号靠前；变着排在后面，用 parent 指回分叉点。
+    firsts = []
+    if game.first_move:
+        firsts = list(game.first_move.get_siblings(include_me=True))
+    stack = [(m, -1, init) for m in reversed(firsts)]
     seen = set()
     while stack:
         m, pa, b = stack.pop()
@@ -126,20 +135,26 @@ def parse_game_to_json(game):
         b2 = b.copy()
         b2[src] = 0
         b2[des] = sc
-        children = []
-        for c in (m.get_children() or []):
-            children.append(c)
-        for s in (m.get_siblings() or []):
-            if not any(c is s for c in children):
-                children.append(s)
+        children = list(m.get_children() or [])
         for c in reversed(children):
             stack.append((c, my_id, b2.copy()))
+
+    info = {k: v for k, v in game.info.items()}
+    code, name, event_left = split_ecco(str(info.get("event") or ""))
+    if code:
+        info["ecco"] = code
+        if name:
+            info["ecco_name"] = name
+        if event_left:
+            info["event"] = event_left
+        else:
+            info.pop("event", None)
 
     return {
         "start": json.dumps({"A": init}),
         "chessName": "ChineseChess",
         "winner": winner,
-        "info": {k: v for k, v in game.info.items()},
+        "info": info,
         "annotate": game.annote,
         "moves": [str(v) for v in moves],
         "comment": {str(k): v for k, v in comment.items()},
@@ -150,38 +165,237 @@ def parse_game_to_json(game):
 # ---------------------------------------------------------------------------
 # 目录树构建
 # ---------------------------------------------------------------------------
+_ECCO_CODE = re.compile(r"[A-E]\d{2}")
+
+
+def split_ecco(event):
+    """从赛事字段里取出原始谱带来的 ECCO 编号，例如 B20、C30。"""
+    if not event:
+        return "", "", ""
+    found = list(_ECCO_CODE.finditer(event))
+    if not found:
+        return "", "", event
+    match = found[-1]
+    code = match.group(0)
+    name = event[match.end():].strip(" \t-—:：")
+    left = event[:match.start()].strip(" \t-—:：")
+    return code, name, left
+
+
 GAME_EXTS = (".xqf", ".qp")  # 库内棋谱扩展名（.xqf 主流；.qp/.QP 为 XQStudio 旧格式，数量大）
-def build_tree():
-    """扫描所有书目录下的棋谱，构建 {label, path|children} 树。"""
-    top = {"label": "棋谱库", "children": []}
+DIR_PAGE = 200
 
-    for root in list_book_roots():
-        rel_root = os.path.relpath(root, ROOT)
-        parts = rel_root.split(os.sep)
-        node = top
-        for part in parts:
-            child = next((x for x in node["children"] if x.get("label") == part and "children" in x), None)
-            if child is None:
-                child = {"label": part, "children": []}
-                node["children"].append(child)
-            node = child
 
-        for dirpath, _dirnames, filenames in os.walk(root):
-            for fn in sorted(filenames):
-                if fn.lower().endswith(GAME_EXTS):
-                    full = os.path.join(dirpath, fn)
-                    rel = os.path.relpath(full, ROOT)
-                    node["children"].append({"label": os.path.splitext(fn)[0], "path": rel})
+class DirIndex:
+    """目录只在内存里记一遍。对外按层返回，避免一次吐出三十万局。"""
 
-    def sort_node(n):
-        if "children" not in n:
-            return
-        n["children"].sort(key=lambda x: (0 if "children" in x else 1, x["label"]))
-        for c in n["children"]:
-            sort_node(c)
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.ready = False
+        self.dirs = {}
+        self.counts = {}
+        self.top = {}
+        self.total = 0
 
-    sort_node(top)
-    return top
+    def build(self):
+        started = time.time()
+        dirs = {}
+        for root in list_book_roots():
+            for dirpath, dirnames, filenames in os.walk(root):
+                rel = os.path.relpath(dirpath, ROOT)
+                files = sorted(fn for fn in filenames if fn.lower().endswith(GAME_EXTS))
+                dirs[rel] = {"files": files, "subs": list(dirnames)}
+        counts = {}
+        for rel in sorted(dirs, key=lambda item: item.count(os.sep), reverse=True):
+            info = dirs[rel]
+            total = len(info["files"])
+            kept = []
+            for name in info["subs"]:
+                child = os.path.join(rel, name)
+                count = counts.get(child, 0)
+                if count:
+                    kept.append(name)
+                    total += count
+            info["subs"] = sorted(kept)
+            counts[rel] = total
+        top = {}
+        total = 0
+        for root in list_book_roots():
+            rel = os.path.relpath(root, ROOT)
+            count = counts.get(rel, 0)
+            total += count
+            name = rel.split(os.sep)[0]
+            top[name] = top.get(name, 0) + count
+        self.dirs = dirs
+        self.counts = counts
+        self.top = top
+        self.total = total
+        self.ready = True
+        print(
+            f"目录索引完成：{total} 局，{len(dirs)} 个目录，用时 {time.time() - started:.1f} 秒",
+            flush=True,
+        )
+
+    def count_of(self, rel):
+        if not rel:
+            return self.total
+        if rel in self.counts:
+            return self.counts[rel]
+        return sum(self._children(rel).values())
+
+    def _children(self, rel):
+        prefix = rel + os.sep
+        found = {}
+        for path, count in self.counts.items():
+            if not path.startswith(prefix) or not count:
+                continue
+            name = path[len(prefix):].split(os.sep, 1)[0]
+            child = prefix + name
+            if name not in found:
+                found[name] = self.counts.get(child, 0)
+        return found
+
+    def resolve(self, rel):
+        rel = (rel or "").replace("\\", "/").strip("/")
+        if not rel:
+            return ""
+        rel = os.path.normpath(rel)
+        if rel.startswith("..") or os.path.isabs(rel):
+            return None
+        if rel in self.dirs or rel in self.top:
+            return rel
+        prefix = rel + os.sep
+        if any(path.startswith(prefix) for path in self.dirs):
+            return rel
+        return None
+
+    def page(self, rel, offset, limit):
+        rel = self.resolve(rel)
+        if rel is None:
+            return {"error": "没有这个目录"}
+        if rel in self.dirs:
+            info = self.dirs[rel]
+            folder_pairs = [
+                (name, self.counts.get(os.path.join(rel, name), 0))
+                for name in info["subs"]
+            ]
+            filenames = info["files"]
+        elif rel == "":
+            folder_pairs = sorted(self.top.items())
+            filenames = []
+        else:
+            folder_pairs = sorted(self._children(rel).items())
+            filenames = []
+        folders = []
+        if offset == 0:
+            for name, count in folder_pairs:
+                if not count:
+                    continue
+                child = os.path.join(rel, name) if rel else name
+                folders.append({
+                    "label": name,
+                    "path": child.replace(os.sep, "/"),
+                    "count": count,
+                })
+        chunk = filenames[offset:offset + limit]
+        files = []
+        for fn in chunk:
+            full = os.path.join(rel, fn) if rel else fn
+            files.append({
+                "label": os.path.splitext(fn)[0],
+                "path": full.replace(os.sep, "/"),
+            })
+        return {
+            "path": rel.replace(os.sep, "/") if rel else "",
+            "count": self.count_of(rel),
+            "folders": folders,
+            "files": files,
+            "fileTotal": len(filenames),
+            "offset": offset,
+        }
+
+
+DIR_INDEX = DirIndex()
+
+
+def ensure_index():
+    if DIR_INDEX.ready:
+        return
+    with DIR_INDEX.lock:
+        if not DIR_INDEX.ready:
+            DIR_INDEX.build()
+
+
+CAT_DB = os.path.join(ROOT, "catalog.db")
+CAT_PAGE = 200
+_cat_cache = {"mtime": None, "outline": None}
+
+
+def _cat_conn():
+    if not os.path.isfile(CAT_DB):
+        return None
+    return sqlite3.connect(f"file:{CAT_DB}?mode=ro", uri=True)
+
+
+def cat_outline():
+    mtime = os.path.getmtime(CAT_DB) if os.path.isfile(CAT_DB) else None
+    if mtime is None:
+        return {"error": "分类还在整理，稍后再打开"}
+    if _cat_cache["mtime"] == mtime and _cat_cache["outline"] is not None:
+        return _cat_cache["outline"]
+    conn = _cat_conn()
+    groups = {}
+    order = []
+    total = 0
+    try:
+        for opening, opening2, count in conn.execute(
+            "SELECT opening, opening2, COUNT(*) FROM games GROUP BY opening, opening2"
+        ):
+            total += count
+            if opening not in groups:
+                groups[opening] = {"opening": opening, "count": 0, "children": []}
+                order.append(opening)
+            groups[opening]["count"] += count
+            groups[opening]["children"].append({"opening2": opening2, "count": count})
+    finally:
+        conn.close()
+    for group in groups.values():
+        group["children"].sort(key=lambda item: (-item["count"], item["opening2"]))
+    outline = {"total": total, "groups": [groups[name] for name in order]}
+    _cat_cache["mtime"] = mtime
+    _cat_cache["outline"] = outline
+    return outline
+
+
+def cat_page(opening, opening2, offset, limit):
+    conn = _cat_conn()
+    if conn is None:
+        return {"error": "分类还在整理，稍后再打开"}
+    try:
+        if opening2:
+            where = "WHERE opening=? AND opening2=?"
+            args = (opening, opening2)
+        else:
+            where = "WHERE opening=?"
+            args = (opening,)
+        total = conn.execute(f"SELECT COUNT(*) FROM games {where}", args).fetchone()[0]
+        rows = conn.execute(
+            f"SELECT path, red, black FROM games {where} ORDER BY path LIMIT ? OFFSET ?",
+            args + (limit, offset),
+        ).fetchall()
+    finally:
+        conn.close()
+    games = []
+    for path, red, black in rows:
+        name = os.path.splitext(os.path.basename(path))[0]
+        games.append({"path": path, "name": name, "red": red or "", "black": black or ""})
+    return {
+        "opening": opening,
+        "opening2": opening2,
+        "total": total,
+        "offset": offset,
+        "games": games,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -215,7 +429,32 @@ class Handler(BaseHTTPRequestHandler):
         path = unquote(parsed.path)
 
         if path == "/api/tree":
-            self._json(build_tree())
+            ensure_index()
+            qs = parse_qs(parsed.query)
+            rel = unquote_plus(qs.get("path", [""])[0])
+            try:
+                offset = max(0, int(qs.get("offset", ["0"])[0] or 0))
+                limit = int(qs.get("limit", [str(DIR_PAGE)])[0] or DIR_PAGE)
+            except ValueError:
+                offset, limit = 0, DIR_PAGE
+            limit = max(1, min(limit, 500))
+            self._json(DIR_INDEX.page(rel, offset, limit))
+            return
+
+        if path == "/api/cat":
+            qs = parse_qs(parsed.query)
+            opening = unquote_plus(qs.get("opening", [""])[0])
+            opening2 = unquote_plus(qs.get("opening2", [""])[0])
+            if not opening:
+                self._json(cat_outline())
+                return
+            try:
+                offset = max(0, int(qs.get("offset", ["0"])[0] or 0))
+                limit = int(qs.get("limit", [str(CAT_PAGE)])[0] or CAT_PAGE)
+            except ValueError:
+                offset, limit = 0, CAT_PAGE
+            limit = max(1, min(limit, 500))
+            self._json(cat_page(opening, opening2, offset, limit))
             return
 
         if path == "/api/index":
@@ -286,6 +525,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     import sys
+    threading.Thread(target=ensure_index, daemon=True).start()
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8945
     server = ThreadingHTTPServer(("0.0.0.0", port), Handler)
     print(f"象棋棋书已启动: http://127.0.0.1:{port}/  棋谱: http://127.0.0.1:{port}/qipu")

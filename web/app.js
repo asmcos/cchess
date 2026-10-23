@@ -2,8 +2,8 @@
  * 中国象棋棋谱浏览器 — 前端逻辑
  * ==================================================
  * 数据流：
- *   GET /api/tree          -> 目录树（棋谱库视图，按目录浏览）
- *   GET /api/index         -> 开局索引（含一级 opening + 二级 opening2）
+ *   GET /api/tree?path=&offset=  -> 目录的一层（棋谱按页返回，不一次下完整库）
+ *   GET /api/cat           -> 分类大纲；带 opening 时按页返回这一类的棋谱
  *   GET /api/game?path=xx  -> 解析单个棋谱为 JSON，加载到右侧棋盘
  *
  * 两大视图（顶部 tab 切换）：
@@ -33,9 +33,9 @@ let initBoard = null, moves = [], cur = -1, board = [];
 let viewFlip = false;  // 视角切换：false=红方视角(红下黑上)，true=黑方视角(上下镜像，黑下红上)
 let playTimer = null;
 let memMode = false, selPiece = null;   // 背谱模式：memMode 开启，selPiece 为当前选中的己方棋子
-let openingMap = {}, countByOpening = {}, filterOpening = "", treeData = null, titleMap = {};
+let openingMap = {}, countByOpening = {}, filterOpening = "", titleMap = {};
 let catGames = [], currentView = "lib";
-const ORDER1 = ["中炮局","仙人指路","起马局","飞相局","过宫炮局","仕角炮局","上士局","其它开局","残局","排局","无着法"];
+const ORDER1 = ["中炮局","仙人指路","起马局","飞相局","过宫炮局","仕角炮局","上士局","其它炮局","其它开局","中局","残局","排局","无着法"];
 
 // ---------- 棋盘静态绘制 ----------
 function gridHTML() {
@@ -160,32 +160,62 @@ function moveText(m, board) {
 
 function buildMoves(data) {
   const init = JSON.parse(data.start).A;
-  const b = init.slice();
   const arr = data.moves.map((vstr, i) => {
     const m = decodeInt(vstr);
     m.id = i;
-    m.text = moveText(m, b);
     m.parent = data.parent && data.parent[i] !== undefined ? data.parent[i] : i - 1;
-    b[m.src] = 0; b[m.des] = m.sc;   // 更新局面供下一步着法文本计算
     return m;
+  });
+  // 着法文本按父着之后的局面计算。变着不沿用列表里前一条的局面。
+  const after = new Array(arr.length);
+  arr.forEach((m) => {
+    const srcBoard = m.parent < 0 ? init : after[m.parent];
+    m.text = moveText(m, srcBoard);
+    const b = srcBoard.slice();
+    b[m.src] = 0; b[m.des] = m.sc;
+    after[m.id] = b;
   });
   return { init, arr };
 }
 
+// 从开局走到第 i 着实际要走的那些步（变着只含分叉前的主变）
+function lineOf(i) {
+  const chain = [];
+  const guard = new Set();
+  let k = i;
+  while (k >= 0 && !guard.has(k)) {
+    guard.add(k);
+    chain.push(k);
+    k = moves[k].parent;
+  }
+  chain.reverse();
+  return chain;
+}
+
+// 当前着法的主续着。同一分叉上的变着排在后面，这里取最先记录的那条。
+function nextStep(i) {
+  for (let k = i + 1; k < moves.length; k++) {
+    if (moves[k].parent === i) return k;
+  }
+  return -1;
+}
+
 // ---------- 导航 ----------
 function goto(i) {
-  cur = Math.max(-1, Math.min(moves.length - 1, i));
-  // 重放局面
+  if (typeof i !== "number" || i < 0) i = -1;
+  if (i >= moves.length) i = moves.length - 1;
+  cur = i;
+  const chain = cur < 0 ? [] : lineOf(cur);
   board = initBoard.slice();
-  for (let k = 0; k <= cur; k++) {
+  for (const k of chain) {
     const m = moves[k];
     board[m.src] = 0; board[m.des] = m.sc;
   }
   renderPieces();
-  document.getElementById("stepInfo").textContent = `${cur + 1} / ${moves.length}`;
+  document.getElementById("stepInfo").textContent = `${chain.length} / ${moves.length}`;
   const tip = document.getElementById("moveTip");
   // 移动端：初始局面的提示文字不显示（省空间）
-  tip.textContent = cur >= 0 ? `第${cur + 1}步  ${moves[cur].text}` : (window.innerWidth <= 900 ? "" : "初始局面");
+  tip.textContent = cur >= 0 ? `第${chain.length}步  ${moves[cur].text}` : (window.innerWidth <= 900 ? "" : "初始局面");
   // 着法列表高亮 + 谱内滚动（只滚谱面板，页面/屏幕保持不动）
   document.querySelectorAll(".move-item").forEach(el => el.classList.toggle("current", +el.dataset.id === cur));
   const act = document.querySelector(`.move-item[data-id="${cur}"]`);
@@ -196,10 +226,12 @@ function goto(i) {
   }
   // 注解
   const cb = document.getElementById("commentBox");
-  const cmt = cur >= 0 ? commentMap[cur] : null;
+  const cmt = cur >= 0 ? commentMap[cur] : openingNote;
   if (cmt) { cb.style.display = "block"; cb.textContent = cmt; }
   else cb.style.display = "none";
 }
+
+let openingNote = "";
 
 let commentMap = {};
 
@@ -218,22 +250,21 @@ function renderMoveList() {
 }
 
 // ---------- 谱间导航（上一个/下一个谱）----------
-let navList = [], navIdx = -1;
-function flatTreeFiles(root) {
-  const out = [];
-  const walk = (nd) => {
-    if (nd.children) nd.children.forEach(walk);
-    else if (nd.path) out.push(nd.path);
-  };
-  walk(root);
-  return out;
+let navList = [], navIdx = -1, navSub = null;
+function setCtx(list, idx, sub) {
+  navList = list || [];
+  navIdx = idx;
+  navSub = arguments.length > 2 ? sub : null;
+  updateNav();
 }
-function setCtx(list, idx) { navList = list || []; navIdx = idx; updateNav(); }
+function folderHasMore(sub) {
+  return !!(sub && sub.querySelector(":scope > .tree-more"));
+}
 function updateNav() {
   const p = document.getElementById("btnPrevGame");
   const n = document.getElementById("btnNextGame");
   if (p) p.disabled = !(navIdx > 0);
-  if (n) n.disabled = !(navIdx < navList.length - 1);
+  if (n) n.disabled = !(navIdx < navList.length - 1 || folderHasMore(navSub));
 }
 
 // ---------- 棋谱加载 ----------
@@ -244,8 +275,24 @@ async function loadGame(path) {
   const { init, arr } = buildMoves(data);
   initBoard = init; moves = arr; cur = -1;
   commentMap = {};
+  openingNote = data.annotate || "";
   Object.entries(data.comment || {}).forEach(([k, v]) => commentMap[+k] = v);
   const info = data.info || {};
+  const eccoBox = document.getElementById("gameEcco");
+  if (eccoBox) {
+    eccoBox.replaceChildren();
+    if (info.ecco) {
+      eccoBox.style.display = "";
+      eccoBox.append("开局编号 ");
+      const link = document.createElement("a");
+      link.href = "/ecco/" + info.ecco[0].toLowerCase() + "#" + info.ecco;
+      link.textContent = info.ecco;
+      eccoBox.append(link);
+      if (info.ecco_name) eccoBox.append(" " + info.ecco_name);
+    } else {
+      eccoBox.style.display = "none";
+    }
+  }
   // 主标题 = 文件名（去扩展名），方便用户按文件名归类
   document.getElementById("gameTitle").textContent = (data.title || path);
   // 内部标题（棋谱文件里存的正式标题，若与文件名不同则单独显示）
@@ -265,7 +312,6 @@ async function loadGame(path) {
     " · " + (arr.length) + "步",
   ].filter(Boolean).join("");
   document.getElementById("gameMeta").textContent = meta;
-  if (data.annotate) { document.getElementById("commentBox").style.display = "block"; document.getElementById("commentBox").textContent = data.annotate; }
   renderMoveList();
   goto(-1);
   // 同步地址栏 hash，便于分享/讨论同一棋谱（不污染浏览器历史）
@@ -285,104 +331,233 @@ async function loadGame(path) {
   }
 }
 
-// ---------- 目录树 ----------
-function renderTree(node, container, depth) {
-  if (node.children) {
-    const row = document.createElement("div");
-    row.className = "tree-folder";
-    row.style.paddingLeft = (10 + depth * 14) + "px";
-    const toggle = document.createElement("span");
-    toggle.className = "tree-toggle"; toggle.textContent = depth === 0 ? "▼" : "▸";
-    const countFiles = (n) => (n.children ? n.children.reduce((s, c) => s + countFiles(c), 0) : 1);
-    const cnt = countFiles(node);
-    row.innerHTML = `<span class="tree-toggle">${depth===0?"▼":"▸"}</span>${node.label}<span class="tree-count">${cnt}</span>`;
-    const sub = document.createElement("div");
-    sub.className = "tree-node";
-    const expanded = depth === 0;
-    if (expanded) sub.style.display = "block"; else sub.style.display = "none";
-    node.children.forEach(c => renderTree(c, sub, depth + 1));
-    row.onclick = (e) => {
-      e.stopPropagation();
-      if (sub.style.display === "none") { sub.style.display = "block"; row.children[0].textContent = "▼"; }
-      else { sub.style.display = "none"; row.children[0].textContent = "▸"; }
-    };
-    container.appendChild(row);
-    container.appendChild(sub);
-  } else {
-    const row = document.createElement("div");
-    row.className = "tree-file";
-    row.style.paddingLeft = (10 + depth * 14) + "px";
-    const nameDiv = document.createElement("div");
-    nameDiv.className = "tree-file-name";
-    nameDiv.textContent = node.label;
-    row.appendChild(nameDiv);
-    const t = titleMap && titleMap[node.path];
-    if (t && t !== node.label) {
-      const titleDiv = document.createElement("div");
-      titleDiv.className = "tree-file-title";
-      titleDiv.textContent = t;
-      row.appendChild(titleDiv);
-    }
-    row.dataset.path = node.path;
-    row.onclick = () => {
-      document.querySelectorAll(".tree-file").forEach(el => el.classList.remove("active"));
-      row.classList.add("active");
-      const all = flatTreeFiles(treeData);
-      setCtx(all, all.indexOf(node.path));
-      loadGame(node.path);
-    };
-    container.appendChild(row);
+// ---------- 目录树（按层加载，一页 200 局）----------
+const DIR_PAGE = 200;
+let treeTotal = 0;
+let indexPromise = null;
+
+function folderFiles(sub) {
+  return [...sub.querySelectorAll(":scope > .tree-file, :scope > .cat-game")].map(el => el.dataset.path);
+}
+async function fetchDir(path, offset) {
+  const q = new URLSearchParams({
+    path: path || "",
+    offset: String(offset || 0),
+    limit: String(DIR_PAGE),
+  });
+  const resp = await fetch("./api/tree?" + q);
+  const data = await resp.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+function renderFile(node, container, depth, sub, before) {
+  const row = document.createElement("div");
+  row.className = "tree-file";
+  row.style.paddingLeft = (10 + depth * 14) + "px";
+  const nameDiv = document.createElement("div");
+  nameDiv.className = "tree-file-name";
+  nameDiv.textContent = node.label;
+  row.appendChild(nameDiv);
+  const t = titleMap && titleMap[node.path];
+  if (t && t !== node.label) {
+    const titleDiv = document.createElement("div");
+    titleDiv.className = "tree-file-title";
+    titleDiv.textContent = t;
+    row.appendChild(titleDiv);
   }
+  row.dataset.path = node.path;
+  row.onclick = () => {
+    document.querySelectorAll(".tree-file").forEach(el => el.classList.remove("active"));
+    row.classList.add("active");
+    const all = sub ? folderFiles(sub) : [node.path];
+    setCtx(all, all.indexOf(node.path), sub || null);
+    loadGame(node.path);
+  };
+  if (before) container.insertBefore(row, before);
+  else container.appendChild(row);
+}
+function renderMore(sub, path, depth, state) {
+  const row = document.createElement("div");
+  row.className = "tree-more";
+  row.style.paddingLeft = (10 + depth * 14) + "px";
+  const rest = () => state.total - state.loaded;
+  row.textContent = `继续加载（还有 ${rest()} 局）`;
+  row._load = async () => {
+    if (row.dataset.busy === "1" || rest() <= 0) return;
+    row.dataset.busy = "1";
+    row.textContent = "加载中…";
+    try {
+      const data = await fetchDir(path, state.loaded);
+      data.files.forEach(file => renderFile(file, sub, depth, sub, row));
+      state.loaded += data.files.length;
+      if (rest() <= 0) row.remove();
+      else row.textContent = `继续加载（还有 ${rest()} 局）`;
+      if (navSub === sub) {
+        const current = navList[navIdx];
+        navList = folderFiles(sub);
+        const at = navList.indexOf(current);
+        if (at >= 0) navIdx = at;
+        updateNav();
+      }
+    } catch (err) {
+      row.textContent = "加载失败，点此重试";
+    }
+    row.dataset.busy = "0";
+  };
+  row.onclick = (e) => { e.stopPropagation(); row._load(); };
+  sub.appendChild(row);
+}
+function fillDir(sub, data, depth, path) {
+  data.folders.forEach(folder => renderFolder(folder, sub, depth));
+  data.files.forEach(file => renderFile(file, sub, depth, sub));
+  const loaded = data.offset + data.files.length;
+  if (loaded < data.fileTotal) {
+    renderMore(sub, path, depth, { loaded, total: data.fileTotal });
+  }
+}
+function renderFolder(node, container, depth, prefetched) {
+  const row = document.createElement("div");
+  row.className = "tree-folder";
+  row.style.paddingLeft = (10 + depth * 14) + "px";
+  row.innerHTML = `<span class="tree-toggle">${depth === 0 ? "▼" : "▸"}</span>${node.label}<span class="tree-count">${node.count || 0}</span>`;
+  const sub = document.createElement("div");
+  sub.className = "tree-node";
+  const expanded = depth === 0;
+  sub.style.display = expanded ? "block" : "none";
+  let built = false;
+  let loading = false;
+  const ensure = async () => {
+    if (built || loading) return;
+    loading = true;
+    try {
+      const data = prefetched || await fetchDir(node.path, 0);
+      fillDir(sub, data, depth + 1, node.path);
+      built = true;
+    } catch (err) {
+      sub.textContent = "这一层没有加载成功";
+    }
+    loading = false;
+  };
+  if (expanded) ensure();
+  row.onclick = (e) => {
+    e.stopPropagation();
+    if (sub.style.display === "none") {
+      ensure();
+      sub.style.display = "block";
+      row.children[0].textContent = "▼";
+    } else {
+      sub.style.display = "none";
+      row.children[0].textContent = "▸";
+    }
+  };
+  container.appendChild(row);
+  container.appendChild(sub);
+}
+async function renderFiltered(opening) {
+  const box = document.getElementById("tree");
+  box.textContent = "正在加载这一类…";
+  try {
+    const data = await fetchCat(opening, "", 0);
+    box.innerHTML = "";
+    const sub = document.createElement("div");
+    box.appendChild(sub);
+    const state = { loaded: 0, total: data.total || 0 };
+    const paint = (games) => {
+      const more = sub.querySelector(":scope > .tree-more");
+      games.forEach(g => renderFile({ label: g.name, path: g.path }, sub, 0, sub, more));
+      state.loaded += games.length;
+    };
+    paint(data.games || []);
+    if (state.loaded < state.total) {
+      attachMore(sub, async () => {
+        const next = await fetchCat(opening, "", state.loaded);
+        paint(next.games || []);
+        return state.loaded < state.total;
+      }, () => state.total - state.loaded);
+    }
+    const el = document.getElementById("filterCount");
+    if (el) el.textContent = state.total ? `${state.total} 局` : "";
+  } catch (err) {
+    box.textContent = err.message || "这一类没有加载成功";
+  }
+}
+async function fetchCat(opening, opening2, offset) {
+  const q = new URLSearchParams({
+    opening: opening || "",
+    opening2: opening2 || "",
+    offset: String(offset || 0),
+    limit: String(DIR_PAGE),
+  });
+  const resp = await fetch("./api/cat?" + q);
+  const data = await resp.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+function attachMore(sub, loadNext, rest) {
+  const row = document.createElement("div");
+  row.className = "tree-more";
+  row.style.paddingLeft = "24px";
+  row.textContent = `继续加载（还有 ${rest()} 局）`;
+  row._load = async () => {
+    if (row.dataset.busy === "1") return;
+    row.dataset.busy = "1";
+    row.textContent = "加载中…";
+    try {
+      const moreLeft = await loadNext();
+      if (!moreLeft) row.remove();
+      else row.textContent = `继续加载（还有 ${rest()} 局）`;
+      if (navSub === sub) {
+        const current = navList[navIdx];
+        navList = folderFiles(sub);
+        const at = navList.indexOf(current);
+        if (at >= 0) navIdx = at;
+        updateNav();
+      }
+    } catch (err) {
+      row.textContent = "加载失败，点此重试";
+    }
+    row.dataset.busy = "0";
+  };
+  row.onclick = (e) => { e.stopPropagation(); row._load(); };
+  sub.appendChild(row);
 }
 
-function filterTree(node) {
-  if (node.children) {
-    const ch = node.children.map(filterTree).filter(Boolean);
-    if (ch.length === 0) return null;
-    return { label: node.label, children: ch };
-  } else {
-    if (filterOpening && openingMap[node.path] !== filterOpening) return null;
-    return node;
-  }
-}
-function countFilesAll(n) {
-  return n.children ? n.children.reduce((s, c) => s + countFilesAll(c), 0) : 1;
-}
-function renderTreeData() {
-  const root = filterOpening ? filterTree(treeData) : treeData;
-  const box = document.getElementById("tree");
-  box.innerHTML = "";
-  if (root) renderTree(root, box, 0);
-  const sel = document.getElementById("openingFilter");
-  if (sel) sel.value = filterOpening;
-  const total = treeData ? countFilesAll(treeData) : 0;
-  const matched = filterOpening ? (countByOpening[filterOpening] || 0) : total;
-  const el = document.getElementById("filterCount");
-  if (el) el.textContent = matched ? `${matched} 局` : "";
-}
 async function loadTree() {
-  const [tresp, iresp, titresp] = await Promise.all([
-    fetch("./api/tree"),
-    fetch("./api/index").then(r => r.json()).catch(() => ({ games: [] })),
-    fetch("./api/title").then(r => r.json()).catch(() => ({})),
-  ]);
-  treeData = await tresp.json();
-  titleMap = titresp && !titresp.error ? titresp : {};
-  const idx = iresp;
-  openingMap = {}; countByOpening = {};
-  catGames = idx.games || [];
-  (idx.games || []).forEach(g => {
-    openingMap[g.path] = g.opening;
-    countByOpening[g.opening] = (countByOpening[g.opening] || 0) + 1;
-  });
-  const sel = document.getElementById("openingFilter");
-  if (sel) {
-    sel.innerHTML = `<option value="">全部开局</option>` +
-      (idx.openings || Object.keys(countByOpening)).map(o =>
-        `<option value="${o}">${o} (${countByOpening[o] || 0})</option>`).join("");
-    sel.onchange = () => { filterOpening = sel.value; renderTreeData(); };
+  const box = document.getElementById("tree");
+  box.textContent = "正在整理目录…";
+  try {
+    const data = await fetchDir("", 0);
+    treeTotal = data.count || 0;
+    box.innerHTML = "";
+    renderFolder({ label: "棋谱库", path: "", count: treeTotal }, box, 0, data);
+  } catch (err) {
+    box.textContent = "目录没有加载成功";
   }
-  renderTreeData();
+  const el = document.getElementById("filterCount");
+  if (el && !filterOpening) el.textContent = treeTotal ? `${treeTotal} 局` : "";
+}
+let catalog = null;
+function ensureIndex() {
+  if (indexPromise) return indexPromise;
+  indexPromise = fetch("./api/cat").then(r => r.json()).then(data => {
+    if (data.error) throw new Error(data.error);
+    catalog = data;
+    const sel = document.getElementById("openingFilter");
+    if (sel) {
+      const current = filterOpening;
+      const groups = (data.groups || []).slice().sort((a, b) => orderIdx(a.opening) - orderIdx(b.opening));
+      sel.innerHTML = `<option value="">全部开局</option>`;
+      groups.forEach(g => {
+        const opt = document.createElement("option");
+        opt.value = g.opening;
+        opt.textContent = `${g.opening} (${g.count})`;
+        sel.appendChild(opt);
+      });
+      sel.value = current;
+    }
+    return data;
+  });
+  return indexPromise;
 }
 
 // ---------- 分类视图（一级 -> 二级 -> 棋谱）----------
@@ -399,71 +574,116 @@ function setView(v) {
     if (sb) sb.classList.remove("collapsed");
   }
   if (window.syncSideBtn) window.syncSideBtn();
-  if (v === "lib") renderTreeData();
-  else renderCatTree();
+  if (v === "lib") {
+    if (filterOpening) renderFiltered(filterOpening);
+    else loadTree();
+  } else {
+    ensureIndex().then(() => {
+      if (currentView === "cat") renderCatTree();
+    }).catch(err => {
+      if (currentView === "cat") document.getElementById("tree").textContent = err.message || "分类没有加载成功";
+    });
+  }
 }
 function renderCatTree() {
-  const by1 = {};
-  (catGames || []).forEach(g => {
-    const l1 = g.opening || "未分类", l2 = g.opening2 || "未分类";
-    (by1[l1] = by1[l1] || {})[l2] = (by1[l1][l2] || 0) + 1;
-  });
   const box = document.getElementById("tree");
   box.innerHTML = "";
-  const l1s = Object.keys(by1).sort((a, b) => orderIdx(a) - orderIdx(b));
-  l1s.forEach(l1 => {
-    const tot = Object.values(by1[l1]).reduce((s, x) => s + x, 0);
+  const groups = ((catalog && catalog.groups) || []).slice().sort((a, b) => orderIdx(a.opening) - orderIdx(b.opening));
+  groups.forEach(group => {
     const row = document.createElement("div");
-    row.className = "tree-folder"; row.style.paddingLeft = "10px";
+    row.className = "tree-folder";
+    row.style.paddingLeft = "10px";
     const toggle = document.createElement("span");
-    toggle.className = "tree-toggle"; toggle.textContent = "▸";
+    toggle.className = "tree-toggle";
+    toggle.textContent = "▸";
     row.appendChild(toggle);
-    row.appendChild(document.createTextNode(l1));
-    const cnt = document.createElement("span"); cnt.className = "tree-count"; cnt.textContent = String(tot);
+    row.appendChild(document.createTextNode(group.opening));
+    const cnt = document.createElement("span");
+    cnt.className = "tree-count";
+    cnt.textContent = String(group.count);
     row.appendChild(cnt);
     box.appendChild(row);
     const sub = document.createElement("div");
-    sub.className = "tree-node"; sub.style.display = "none";   // 默认收起
+    sub.className = "tree-node";
+    sub.style.display = "none";
     row.onclick = (e) => {
       e.stopPropagation();
       if (sub.style.display === "none") { sub.style.display = "block"; toggle.textContent = "▼"; }
       else { sub.style.display = "none"; toggle.textContent = "▸"; }
     };
-    Object.keys(by1[l1]).sort().forEach(l2 => {
-      const n = by1[l1][l2];
+    (group.children || []).forEach(child => {
       const r2 = document.createElement("div");
-      r2.className = "tree-file cat2"; r2.style.paddingLeft = "24px";
-      r2.innerHTML = `<span>${l2}</span><span class="tree-count">${n}</span>`;
+      r2.className = "tree-file cat2";
+      r2.style.paddingLeft = "24px";
+      const label = document.createElement("span");
+      label.textContent = child.opening2;
+      const count = document.createElement("span");
+      count.className = "tree-count";
+      count.textContent = String(child.count);
+      r2.appendChild(label);
+      r2.appendChild(count);
       r2.onclick = (e) => {
         e.stopPropagation();
         document.querySelectorAll(".cat2").forEach(x => x.classList.remove("active"));
         r2.classList.add("active");
-        showCatGames(l1, l2);
+        showCatGames(group.opening, child.opening2);
       };
       sub.appendChild(r2);
     });
     box.appendChild(sub);
   });
 }
-function showCatGames(l1, l2) {
-  const list = (catGames || []).filter(g => g.opening === l1 && (g.opening2 || "未分类") === l2);
+async function showCatGames(l1, l2) {
   const box = document.getElementById("catList");
-  box.innerHTML = `<div class="cat-head">${l1} · ${l2}（${list.length} 局）</div>`;
-  list.forEach(g => {
-    const r = document.createElement("div"); r.className = "cat-game";
-    r.innerHTML = `<span class="cat-g-name">${g.name}</span>` +
-      (titleMap[g.path] && titleMap[g.path] !== g.name ? `<span class="cat-g-title">${titleMap[g.path]}</span>` : "") +
-      `<span class="cat-g-meta">${g.red || ""}${g.black ? (" vs " + g.black) : ""}</span>`;
-    r.dataset.path = g.path;
-    r.onclick = () => {
-      document.querySelectorAll(".cat-game").forEach(x => x.classList.remove("active"));
-      r.classList.add("active");
-      const paths = list.map(x => x.path);
-      setCtx(paths, paths.indexOf(g.path));
-      loadGame(g.path);
-    };
-    box.appendChild(r);
-  });
+  box.innerHTML = "";
+  const head = document.createElement("div");
+  head.className = "cat-head";
+  head.textContent = `${l1} · ${l2}`;
+  box.appendChild(head);
+  const state = { loaded: 0, total: 0 };
+  const paint = (games) => {
+    const more = box.querySelector(":scope > .tree-more");
+    games.forEach(g => {
+      const r = document.createElement("div");
+      r.className = "cat-game";
+      const name = document.createElement("span");
+      name.className = "cat-g-name";
+      name.textContent = g.name;
+      r.appendChild(name);
+      if (g.red || g.black) {
+        const meta = document.createElement("span");
+        meta.className = "cat-g-meta";
+        meta.textContent = `${g.red || ""}${g.black ? " vs " + g.black : ""}`;
+        r.appendChild(meta);
+      }
+      r.dataset.path = g.path;
+      r.onclick = () => {
+        document.querySelectorAll(".cat-game").forEach(x => x.classList.remove("active"));
+        r.classList.add("active");
+        const paths = folderFiles(box);
+        setCtx(paths, paths.indexOf(g.path), box);
+        loadGame(g.path);
+      };
+      if (more) box.insertBefore(r, more);
+      else box.appendChild(r);
+    });
+    state.loaded += games.length;
+    head.textContent = `${l1} · ${l2}（${state.total} 局）`;
+  };
+  try {
+    const data = await fetchCat(l1, l2, 0);
+    state.total = data.total || 0;
+    paint(data.games || []);
+    if (state.loaded < state.total) {
+      attachMore(box, async () => {
+        const next = await fetchCat(l1, l2, state.loaded);
+        paint(next.games || []);
+        return state.loaded < state.total;
+      }, () => state.total - state.loaded);
+    }
+  } catch (err) {
+    head.textContent = err.message || "这一类没有加载成功";
+  }
 }
 
 // ---------- 背谱模式 ----------
@@ -487,28 +707,49 @@ function exitMem() {
   const b = document.getElementById("btnMem"); if (b) b.classList.remove("active");
   memTip("", true);
 }
-// 用户练的一方：红视角练红(0)，黑视角(反转)练黑(1)；系统自动走对方
 function userSide() { return viewFlip ? 1 : 0; }
 function systemSide() { return viewFlip ? 0 : 1; }
-// 系统自动走对手，直到轮到用户方或棋局结束
 function autoAdvance() {
-  while (moves[cur + 1] && moves[cur + 1].who === systemSide()) goto(cur + 1);
-  if (!moves[cur + 1]) memTip("🎉 整局背谱完成！", true);
-  else memTip("正确！轮到你走" + (moves[cur + 1].who === 0 ? "红" : "黑") + "方", true);
+  let guard = 0;
+  while (guard++ < 400) {
+    const nxt = nextStep(cur);
+    if (nxt < 0 || moves[nxt].who !== systemSide()) break;
+    goto(nxt);
+  }
+  const nxt = nextStep(cur);
+  if (nxt < 0) memTip("🎉 整局背谱完成！", true);
+  else memTip("正确！轮到你走" + (moves[nxt].who === 0 ? "红" : "黑") + "方", true);
 }
-// 进入背谱，startN=从第 startN 步开始背（>=1）：先自动播到前一步，再轮到用户
+function trunkIndex(ply) {
+  let i = -1;
+  for (let t = 0; t < ply; t++) {
+    const n = nextStep(i);
+    if (n < 0) return i;
+    i = n;
+  }
+  return i;
+}
+function trunkLength() {
+  let n = 0, i = -1;
+  while (n <= moves.length) {
+    const nxt = nextStep(i);
+    if (nxt < 0) return n;
+    i = nxt;
+    n++;
+  }
+  return n;
+}
 function enterMem(startN) {
   memMode = true; selPiece = null;
   const b = document.getElementById("btnMem"); if (b) b.classList.add("active");
-  if (startN <= 1) goto(-1);
-  else goto(startN - 2);
+  goto(trunkIndex(Math.max(0, startN - 1)));
   autoAdvance();
 }
 function openMemModal() {
   const from = document.getElementById("memFrom"), lim = document.getElementById("memLimit");
-  from.value = 1; lim.value = 15;                                // 统一默认 15（短棋谱在确认时按实际步数截断）
-  from.disabled = true; lim.disabled = false;                 // 默认随机
-  document.getElementById("memRand").checked = true;          // 默认勾选随机
+  from.value = 1; lim.value = 15;
+  from.disabled = true; lim.disabled = false;
+  document.getElementById("memRand").checked = true;
   document.getElementById("memModal").style.display = "flex";
 }
 function closeMemModal() {
@@ -517,56 +758,86 @@ function closeMemModal() {
 function startMemFromModal() {
   const rand = document.getElementById("memRand").checked;
   let startN = 1;
+  const span = trunkLength() || moves.length;
   if (rand) {
     let M = parseInt(document.getElementById("memLimit").value, 10) || 15;
-    M = Math.max(1, Math.min(M, moves.length));
-    startN = 1 + Math.floor(Math.random() * M);   // 1..M 随机
+    M = Math.max(1, Math.min(M, span));
+    startN = 1 + Math.floor(Math.random() * M);
   } else {
     startN = parseInt(document.getElementById("memFrom").value, 10) || 1;
   }
-  startN = Math.max(1, Math.min(startN, moves.length));
+  startN = Math.max(1, Math.min(startN, span));
   closeMemModal();
   enterMem(startN);
 }
 function onCell(c, rr) {
   if (!memMode || !moves.length) return;
-  if (moves[cur + 1] && moves[cur + 1].who !== userSide()) { autoAdvance(); return; }
+  const nxt = nextStep(cur);
+  if (nxt >= 0 && moves[nxt].who !== userSide()) { autoAdvance(); return; }
   const r = viewFlip ? 9 - rr : rr;
   const p = r * 9 + c;
-  const next = moves[cur + 1];
+  const next = nxt >= 0 ? moves[nxt] : null;
   if (!next) { memTip("🎉 整局背谱完成！", true); return; }
   const code = board[p];
   if (code && (code <= 7) === (userSide() === 0)) { selPiece = p; renderPieces(); return; }
   if (selPiece !== null) {
     if (selPiece === next.src && p === next.des) {
-      goto(cur + 1);                    // 应用用户这步
+      goto(nxt);
       selPiece = null; renderPieces();
-      autoAdvance();                    // 系统自动走对手，直到轮到用户
+      autoAdvance();
     } else {
       selPiece = null; renderPieces();
-      memTip("走错了！原谱第" + (cur + 2) + "步：" + next.text + "，请重走", false);
-      showToast("走错了！原谱第" + (cur + 2) + "步：" + next.text);
+      const ply = lineOf(nxt).length;
+      memTip("走错了！原谱第" + ply + "步：" + next.text + "，请重走", false);
+      showToast("走错了！原谱第" + ply + "步：" + next.text);
     }
   }
 }
 
-// ---------- 控制 ----------
 function bindControls() {
   const $ = id => document.getElementById(id);
-  const nav = (fn) => () => { exitMem(); fn(); };   // 导航操作时退出背谱
+  const nav = (fn) => () => { exitMem(); fn(); };
   $("btnFirst").onclick = nav(() => goto(-1));
-  $("btnPrev").onclick = nav(() => goto(cur - 1));
-  $("btnNext").onclick = nav(() => goto(cur + 1));
-  $("btnLast").onclick = nav(() => goto(moves.length - 1));
+  $("btnPrev").onclick = nav(() => goto(cur < 0 ? -1 : moves[cur].parent));
+  $("btnNext").onclick = nav(() => { const n = nextStep(cur); if (n >= 0) goto(n); });
+  $("btnLast").onclick = nav(() => {
+    let i = cur < 0 ? nextStep(-1) : cur;
+    let guard = 0;
+    while (i >= 0 && guard++ < moves.length) {
+      const n = nextStep(i);
+      if (n < 0) break;
+      i = n;
+    }
+    if (i >= 0) goto(i);
+  });
   $("btnReset").onclick = () => goto(-1);
   const pg = document.getElementById("btnPrevGame");
-  if (pg) pg.onclick = () => { if (navIdx > 0) { navIdx--; loadGame(navList[navIdx]); } };
+  if (pg) pg.onclick = () => { if (navIdx > 0) { navIdx--; loadGame(navList[navIdx]); updateNav(); } };
   const ng = document.getElementById("btnNextGame");
-  if (ng) ng.onclick = () => { if (navIdx < navList.length - 1) { navIdx++; loadGame(navList[navIdx]); } };
+  if (ng) ng.onclick = async () => {
+    if (navIdx >= navList.length - 1 && navSub) {
+      const more = navSub.querySelector(":scope > .tree-more");
+      if (more && more._load) await more._load();
+    }
+    if (navIdx < navList.length - 1) {
+      navIdx++;
+      loadGame(navList[navIdx]);
+      updateNav();
+    }
+  };
+  const sel = document.getElementById("openingFilter");
+  if (sel) {
+    sel.addEventListener("focus", () => ensureIndex());
+    sel.onchange = async () => {
+      filterOpening = sel.value;
+      if (!filterOpening) { await loadTree(); return; }
+      renderFiltered(filterOpening);
+    };
+  }
   $("btnMem").onclick = () => {
     if (!moves.length) { alert("请先选择一个棋谱再进入背谱"); return; }
     if (memMode) { exitMem(); goto(-1); return; }
-    openMemModal();   // 弹框选择起点：指定步数或随机
+    openMemModal();
   };
   const memCancel = document.getElementById("memCancel");
   if (memCancel) memCancel.onclick = closeMemModal;
@@ -583,22 +854,38 @@ function bindControls() {
     if (playTimer) { clearInterval(playTimer); playTimer = null; $("btnPlay").textContent = "▶▶"; return; }
     $("btnPlay").textContent = "⏸";
     playTimer = setInterval(() => {
-      if (cur >= moves.length - 1) { clearInterval(playTimer); playTimer = null; $("btnPlay").textContent = "▶▶"; return; }
-      goto(cur + 1);
+      const n = nextStep(cur);
+      if (n < 0) { clearInterval(playTimer); playTimer = null; $("btnPlay").textContent = "▶▶"; return; }
+      goto(n);
     }, 900);
   };
   window.addEventListener("keydown", (e) => {
-    if (e.key === "ArrowRight") { exitMem(); goto(cur + 1); }
-    else if (e.key === "ArrowLeft") { exitMem(); goto(cur - 1); }
-    else if (e.key === "ArrowUp") { exitMem(); goto(cur + 5); }
-    else if (e.key === "ArrowDown") { exitMem(); goto(cur - 5); }
+    const hop = (n) => {
+      exitMem();
+      let i = cur;
+      if (n > 0) {
+        for (let t = 0; t < n; t++) {
+          const nxt = nextStep(i);
+          if (nxt < 0) break;
+          i = nxt;
+        }
+      } else {
+        for (let t = 0; t < -n; t++) {
+          if (i < 0) break;
+          i = moves[i].parent;
+        }
+      }
+      goto(i);
+    };
+    if (e.key === "ArrowRight") hop(1);
+    else if (e.key === "ArrowLeft") hop(-1);
+    else if (e.key === "ArrowUp") hop(5);
+    else if (e.key === "ArrowDown") hop(-5);
   });
 }
 
-// ---------- 启动 ----------
 function init() {
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-  // 透明点击层：9×10 格，每格一个可点击矩形，供背谱模式走子
   let clicks = "";
   for (let r = 0; r < 10; r++) for (let c = 0; c < 9; c++)
     clicks += `<rect x="${PAD + c*CELL - CELL/2}" y="${PAD + r*CELL - CELL/2}" width="${CELL}" height="${CELL}" fill="transparent" pointer-events="all" data-c="${c}" data-r="${r}"/>`;
@@ -613,7 +900,6 @@ function init() {
   bindControls();
   document.getElementById("tabLib").onclick = () => setView("lib");
   document.getElementById("tabCat").onclick = () => setView("cat");
-  // 目录收起/展开按钮：手机端点棋谱后目录会收起，用此按钮一键展开/收起
   window.syncSideBtn = () => {
     const sb = document.getElementById("sidebar");
     const b = document.getElementById("toggleSide");
@@ -626,7 +912,6 @@ function init() {
     window.syncSideBtn();
   };
   loadTree();
-  // 从地址栏 hash 自动加载棋谱（分享链接直达同一棋谱）
   const hm = location.hash.match(/[#&]path=([^&]+)/);
   if (hm) { const p = decodeURIComponent(hm[1]); setTimeout(() => loadGame(p), 0); }
 }
