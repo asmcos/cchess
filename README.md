@@ -16,12 +16,13 @@ xqbook 是代码开源、使用免费的背谱打谱软件，同时也是一个�
 
 ---
 
-## 两个页面
+## 页面
 
 | 页面 | 地址 | 做什么 |
 | --- | --- | --- |
 | 首页 | [https://xqbook.cn/](https://xqbook.cn/) | 说明这本棋书：延续 ECCO、五大类目录、怎么背谱 |
 | 棋谱 | [https://xqbook.cn/qipu](https://xqbook.cn/qipu) | 30 万+ 局：按书翻、按开局分类、自己走主变 |
+| 分叉 | [https://xqbook.cn/moves](https://xqbook.cn/moves) | 标准开局前 20 步，每层最常见的 10 种着法。第一步在 `web/move-tree.json`，点开后再取 `web/move-parts/`。用 `python3 build_move_tree.py` 重新生成 |
 
 顶栏两边相同。「首页」留在本页，「棋谱」进入二级页。
 

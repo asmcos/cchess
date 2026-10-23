@@ -337,6 +337,27 @@ def _cat_conn():
     return sqlite3.connect(f"file:{CAT_DB}?mode=ro", uri=True)
 
 
+_TAIL_CACHE = {}
+_TAIL_LOCK = threading.Lock()
+
+
+def move_tail(part, key, kind="tail"):
+    """按编号取出一支后续着法，不把整包发给浏览器。"""
+    if kind not in ("tail", "late") or not part.isdigit() or not key.isdigit():
+        return None
+    cache_key = kind + ":" + part
+    with _TAIL_LOCK:
+        data = _TAIL_CACHE.get(cache_key)
+        if data is None:
+            path = os.path.join(WEB, "move-parts", f"{part}-{kind}.json")
+            if not os.path.isfile(path):
+                return None
+            with open(path, encoding="utf-8") as handle:
+                data = json.load(handle)
+            _TAIL_CACHE[cache_key] = data
+    return data.get(key, [])
+
+
 def cat_outline():
     mtime = os.path.getmtime(CAT_DB) if os.path.isfile(CAT_DB) else None
     if mtime is None:
@@ -457,6 +478,18 @@ class Handler(BaseHTTPRequestHandler):
             self._json(cat_page(opening, opening2, offset, limit))
             return
 
+        if path == "/api/move-tail":
+            qs = parse_qs(parsed.query)
+            part = qs.get("part", [""])[0]
+            key = qs.get("key", [""])[0]
+            kind = qs.get("kind", ["tail"])[0]
+            rows = move_tail(part, key, kind)
+            if rows is None:
+                self._json({"error": "没有这一步"})
+            else:
+                self._json(rows)
+            return
+
         if path == "/api/index":
             idx_path = os.path.join(ROOT, "index.json")
             if os.path.exists(idx_path):
@@ -509,6 +542,8 @@ class Handler(BaseHTTPRequestHandler):
                 path = f"/ecco/{letter}.html"
         elif path in ("/qipu", "/qipu/"):
             path = "/qipu.html"
+        elif path in ("/moves", "/moves/"):
+            path = "/moves.html"
 
         # 静态文件
         fp = os.path.normpath(os.path.join(WEB, path.lstrip("/")))

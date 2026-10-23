@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>开局分叉 · 象棋棋书</title>
+<meta name="description" content="标准开局前二十步的主变分叉。每层列出最常见的十种着法，点一步在同一页展开下一步。">
+<link rel="stylesheet" href="home.css">
+<link rel="stylesheet" href="moves.css">
+</head>
+<body>
+<div class="sheet">
+  <header class="top">
+    <a class="brand" href="/">
+      <span class="seal">谱</span>
+      <span>
+        <strong>象棋棋书</strong>
+        <em>xqbook.cn</em>
+      </span>
+    </a>
+    <nav class="nav">
+      <a href="/">首页</a>
+      <a href="/qipu">棋谱</a>
+      <a href="/ecco">开局</a>
+      <a href="/moves" aria-current="page">分叉</a>
+    </nav>
+  </header>
+
+  <section class="hero solo">
+    <div>
+      <p class="eyebrow">标准开局 · 前二十步</p>
+      <h1>点一步，看下一步</h1>
+      <p class="lead" id="lead">正在读取分叉。</p>
+    </div>
+  </section>
+
+  <section class="section" id="treeSection">
+    <p class="path" id="pathLine"></p>
+    <div class="cols" id="cols"></div>
+  </section>
+
+  <footer class="foot">
+    <div>象棋棋书 · xqbook.cn<br>分叉只计标准开局局面的主变，每层保留最常见的 10 种。</div>
+    <div class="friends">
+      <span>友情链接</span>
+      <a href="https://www.xqbase.com/" target="_blank" rel="noopener">象棋百科全书</a>
+    </div>
+  </footer>
+</div>
+<script src="moves.js"></script>
+</body>
+</html>

@@ -4,9 +4,10 @@ xqbook 是代码开源、使用免费的背谱打谱软件，同时也是一个�
 
 站点首页见 [README.md](README.md)。本页只说明棋谱。
 
-> 项目棋谱来自： https://github.com/zhengguozi/chess_book/
+> 项目首期棋谱来自： https://github.com/zhengguozi/chess_book/
+后来有增加了30万棋谱。
 
-> 项目主页：https://jeapedu.com/chess
+> 项目主页：https://xqbook.cn 
 
 ---
 
