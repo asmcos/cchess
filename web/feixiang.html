@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>相三进五二十步 · 象棋棋书</title>
+<meta name="description" content="相三进五的二十步分叉。每一步列出最常见的十种着法，可以在棋盘上试着走。">
+<base href="/">
+<link rel="stylesheet" href="home.css">
+<link rel="stylesheet" href="zhongpao.css">
+</head>
+<body data-move="相三进五" data-family="飞相" data-other="相七进五">
+<div class="sheet">
+  <header class="top">
+    <a class="brand" href="/">
+      <span class="seal">谱</span>
+      <span>
+        <strong>象棋棋书</strong>
+        <em>xqbook.cn</em>
+      </span>
+    </a>
+    <nav class="nav">
+      <a href="/">首页</a>
+      <a href="/qipu">棋谱</a>
+      <a href="/ecco">开局</a>
+      <a href="/moves">流行谱</a>
+      <a href="/zhongpao">中炮</a>
+      <a href="/bingqi">兵七进一</a>
+      <a href="/feixiang" aria-current="page">相三进五</a>
+      <a href="/guogong">炮二平六</a>
+    </nav>
+  </header>
+
+  <section class="hero solo">
+    <div>
+      <p class="eyebrow">相三进五 · 红方十步 · 黑方十步</p>
+      <h1>顺着最常见的一路，试二十步</h1>
+      <p class="lead" id="lead">正在读取相三进五的分叉。</p>
+    </div>
+  </section>
+
+  <section class="section play">
+    <div class="board-col">
+      <div class="board-frame">
+        <svg id="board" viewBox="0 0 440 486" role="img" aria-label="相三进五棋盘"></svg>
+      </div>
+      <p class="step-info" id="stepInfo">尚未走子</p>
+      <div class="play-btns">
+        <button type="button" id="btnStart">开头</button>
+        <button type="button" id="btnPrev">上一步</button>
+        <button type="button" id="btnNext">下一步</button>
+        <button type="button" id="btnEnd">走到第二十步</button>
+      </div>
+      <p class="path" id="pathLine">先走第一步。</p>
+    </div>
+    <div class="plies" id="plies"></div>
+  </section>
+
+  <footer class="foot">
+    <div>象棋棋书 · xqbook.cn<br>相三进五这一页用已经算好的分叉，每层保留最常见的 10 种着法。</div>
+    <div class="friends">
+      <span>友情链接</span>
+      <a href="https://www.xqbase.com/" target="_blank" rel="noopener">象棋百科全书</a>
+    </div>
+  </footer>
+</div>
+<script src="zhongpao.js"></script>
+</body>
+</html>

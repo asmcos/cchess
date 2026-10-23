@@ -37,7 +37,7 @@ body {
   font-family: "Songti SC", "STSong", "SimSun", serif;
   font-size: 15px; letter-spacing: 0;
 }
-.site-nav { display: flex; gap: 4px; }
+.site-nav { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
 .site-nav a {
   color: var(--dim); text-decoration: none;
   font-size: 14px; padding: 6px 12px; border-radius: 999px;

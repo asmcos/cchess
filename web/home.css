@@ -107,7 +107,9 @@ a { color: inherit; }
 
 .nav {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+  justify-content: flex-end;
 }
 
 .nav a {

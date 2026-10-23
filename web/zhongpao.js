@@ -17,6 +17,9 @@ const stepInfo = document.getElementById("stepInfo");
 const pathLine = document.getElementById("pathLine");
 const plies = document.getElementById("plies");
 const svg = document.getElementById("board");
+const pageMove = document.body.dataset.move || "炮二平五";
+const pageFamily = document.body.dataset.family || pageMove;
+const pageOther = document.body.dataset.other || "";
 
 let tree = null;
 let root = null;
@@ -296,7 +299,7 @@ function render() {
   drawBoard();
   if (!ok) return;
   const reached = cursor ? path[cursor - 1] : null;
-  if (!reached) stepInfo.textContent = "开局局面 · 中炮共 " + num(root.n) + " 局";
+  if (!reached) stepInfo.textContent = "开局局面 · " + pageMove + "共 " + num(root.n) + " 局";
   else {
     const prev = cursor > 1 ? path[cursor - 2].n : tree.total;
     stepInfo.textContent = plyName(cursor - 1) + " " + sideName(cursor - 1) + " " + reached.m
@@ -335,8 +338,6 @@ function render() {
     });
     plies.append(block);
   });
-  const here = cursor ? plies.children[cursor - 1] : null;
-  if (here) here.scrollIntoView({ block: "nearest" });
 }
 
 async function choose(depth, choice) {
@@ -355,21 +356,30 @@ fetch("move-tree.json")
   .then((response) => response.json())
   .then(async (data) => {
     tree = data;
-    root = data.children.find((item) => item.m === "炮二平五");
-    const other = data.children.find((item) => item.m === "炮八平五");
+    root = data.children.find((item) => item.m === pageMove);
+    if (!root) {
+      lead.textContent = pageMove + " 不在已经算好的前十种第一步里。";
+      return;
+    }
+    const other = pageOther ? data.children.find((item) => item.m === pageOther) : null;
     root.c = await fetch("move-parts/" + root.part + ".json").then((response) => response.json());
     mainLine = [root].concat(await extendFirst(root, 19));
     path = mainLine.slice();
     const end = mainLine[mainLine.length - 1];
-    const zhongpao = root.n + (other ? other.n : 0);
-    lead.textContent = "标准开局 " + num(data.total) + " 局。中炮共 " + num(zhongpao)
-      + " 局，其中炮二平五 " + num(root.n) + " 局，炮八平五 " + num(other ? other.n : 0)
-      + " 局。下面把炮二平五每一步最常见的着法走到" + plyName(mainLine.length - 1)
-      + "，这一路还有 " + num(end.n) + " 局，占炮二平五 " + pct(end.n, root.n)
+    let intro = "标准开局 " + num(data.total) + " 局。";
+    if (other) {
+      intro += pageFamily + "共 " + num(root.n + other.n) + " 局，其中" + pageMove + " "
+        + num(root.n) + " 局，" + pageOther + " " + num(other.n) + " 局。";
+    } else {
+      intro += pageMove + " " + num(root.n) + " 局。";
+    }
+    intro += "下面把" + pageMove + "每一步最常见的着法走到" + plyName(mainLine.length - 1)
+      + "，这一路还有 " + num(end.n) + " 局，占" + pageMove + " " + pct(end.n, root.n)
       + "%，占全部标准开局 " + pct(end.n, data.total) + "%。一旁列出这一路每一层的 10 种分叉，点一种就能在棋盘上试。";
+    lead.textContent = intro;
     cursor = 0;
     render();
   })
   .catch(() => {
-    lead.textContent = "中炮分叉没有加载成功。";
+    lead.textContent = pageMove + "分叉没有加载成功。";
   });

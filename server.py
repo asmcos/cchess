@@ -546,6 +546,12 @@ class Handler(BaseHTTPRequestHandler):
             path = "/moves.html"
         elif path in ("/zhongpao", "/zhongpao/"):
             path = "/zhongpao.html"
+        elif path in ("/bingqi", "/bingqi/"):
+            path = "/bingqi.html"
+        elif path in ("/feixiang", "/feixiang/"):
+            path = "/feixiang.html"
+        elif path in ("/guogong", "/guogong/"):
+            path = "/guogong.html"
 
         # 静态文件
         fp = os.path.normpath(os.path.join(WEB, path.lstrip("/")))

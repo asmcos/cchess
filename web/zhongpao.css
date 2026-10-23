@@ -133,6 +133,28 @@
 
 .fork.here { outline: 2px solid var(--gold); outline-offset: 1px; }
 
+.open-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.open-links a {
+  text-decoration: none;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.open-links a[aria-current="page"] {
+  color: var(--cinnabar-deep);
+  border-color: var(--cinnabar);
+  font-weight: 600;
+}
+
 @media (max-width: 800px) {
   .play { grid-template-columns: 1fr; }
   .board-col { position: static; }
