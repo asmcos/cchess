@@ -155,6 +155,12 @@
   font-weight: 600;
 }
 
+.wait {
+  margin: 8px 0 16px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 @media (max-width: 800px) {
   .play { grid-template-columns: 1fr; }
   .board-col { position: static; }

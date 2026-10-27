@@ -1,0 +1,82 @@
+.me-card {
+  max-width: 420px;
+  padding: 8px 0 12px;
+}
+
+.avatar {
+  width: 128px;
+  height: 128px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  font-family: "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", serif;
+  font-size: 64px;
+  line-height: 1;
+  color: #f8f1e6;
+  box-shadow: 0 8px 18px rgba(34, 25, 16, .16);
+}
+
+.avatar-hint {
+  margin: 10px 0 22px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.name-label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  letter-spacing: .12em;
+}
+
+.name-row {
+  display: flex;
+  gap: 8px;
+}
+
+.name-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 18px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.name-row input:focus {
+  outline: 2px solid rgba(180, 51, 42, .35);
+  border-color: var(--cinnabar);
+}
+
+.name-row button,
+.me-card .avatar:focus-visible {
+  outline: 2px solid rgba(180, 51, 42, .45);
+  outline-offset: 2px;
+}
+
+.name-row button {
+  padding: 0 16px;
+  color: #f8f1e6;
+  font: inherit;
+  font-size: 15px;
+  background: var(--cinnabar);
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.name-row button:hover { background: var(--cinnabar-deep); }
+
+.saved {
+  min-height: 1.6em;
+  margin-top: 10px;
+  color: var(--cinnabar-deep);
+  font-size: 14px;
+}

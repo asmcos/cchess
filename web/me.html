@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>我的 · 象棋棋书</title>
+<meta name="description" content="象棋棋书的个人页。随机头像和名字存在这台浏览器里。">
+<link rel="stylesheet" href="home.css">
+<link rel="stylesheet" href="me.css">
+</head>
+<body>
+<div class="sheet">
+  <header class="top">
+    <a class="brand" href="/">
+      <span class="seal">谱</span>
+      <span>
+        <strong>象棋棋书</strong>
+        <em>xqbook.cn</em>
+      </span>
+    </a>
+    <nav class="nav">
+      <a href="/">首页</a>
+      <a href="/qipu">棋谱</a>
+      <a href="/ecco">开局</a>
+      <a href="/moves">流行谱</a>
+      <a href="/zhongpao">中炮</a>
+      <a href="/bingqi">仙人指路</a>
+      <a href="/feixiang">飞相局</a>
+      <a href="/guogong">过宫炮</a>
+      <a href="/me" aria-current="page">我的</a>
+      <a href="/#memorize">背谱</a>
+    </nav>
+  </header>
+
+  <section class="hero solo">
+    <div>
+      <p class="eyebrow">这台浏览器</p>
+      <h1>我的</h1>
+      <p class="lead">头像第一次打开时随机生成。名字可以改。两者都留在这台浏览器里。</p>
+    </div>
+  </section>
+
+  <section class="section me">
+    <div class="me-card">
+      <button type="button" id="avatar" class="avatar" title="换一个头像" aria-label="换一个头像"></button>
+      <p class="avatar-hint">点头像可以再随机一个。</p>
+      <label class="name-label" for="name">名字</label>
+      <div class="name-row">
+        <input id="name" maxlength="16" autocomplete="nickname" placeholder="棋友">
+        <button type="button" id="save">保存</button>
+      </div>
+      <p class="saved" id="saved"></p>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <div>象棋棋书 · xqbook.cn<br>名字和头像只存在这台浏览器，不上传。</div>
+    <div class="friends">
+      <span>友情链接</span>
+      <a href="https://www.xqbase.com/" target="_blank" rel="noopener">象棋百科全书</a>
+    </div>
+  </footer>
+</div>
+<script src="me.js"></script>
+</body>
+</html>

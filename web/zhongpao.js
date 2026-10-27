@@ -28,6 +28,9 @@ let path = [];
 let cursor = 0;
 let board = [];
 let lastMove = null;
+let partReady = null;
+let fillToken = 0;
+let openingText = "";
 const slices = {};
 
 function plyName(index) {
@@ -246,6 +249,10 @@ function loadSlice(part, key, kind) {
 
 async function ensureChildren(node) {
   if (node.c) return node.c;
+  if (node.part && partReady) {
+    await partReady;
+    if (node.c) return node.c;
+  }
   if (node.tail) {
     node.c = await loadSlice(root.part, node.tail, "tail");
     return node.c;
@@ -256,6 +263,24 @@ async function ensureChildren(node) {
   }
   node.c = [];
   return node.c;
+}
+
+function absorbLoaded(node) {
+  let current = node;
+  while (path.length < 20 && Array.isArray(current.c) && current.c.length) {
+    current = current.c[0];
+    path.push(current);
+  }
+}
+
+async function pullUntil(limit) {
+  while (path.length < limit) {
+    const node = path[path.length - 1];
+    const before = path.length;
+    if (!Array.isArray(node.c)) await ensureChildren(node);
+    absorbLoaded(node);
+    if (path.length === before) break;
+  }
 }
 
 async function extendFirst(node, slots) {
@@ -338,23 +363,81 @@ function render() {
     });
     plies.append(block);
   });
+  const tip = path[path.length - 1];
+  if (path.length < 20 && tip && !Array.isArray(tip.c)) {
+    const note = document.createElement("div");
+    note.className = "wait";
+    note.textContent = "后面的分叉还在读取。";
+    plies.append(note);
+  }
 }
 
 async function choose(depth, choice) {
+  const first = depth === 0 ? root : (path[depth - 1].c || [])[0];
+  if (choice !== first) fillToken += 1;
+  const token = fillToken;
+  if (!choice.c && (choice.tail || choice.late || choice.part)) {
+    stepInfo.textContent = "正在读取这一步。";
+  }
   const rest = await extendFirst(choice, 19 - depth);
+  if (token !== fillToken) return;
   path = path.slice(0, depth).concat(choice, rest);
   cursor = depth + 1;
   render();
 }
 
+async function goNext() {
+  if (!root) return;
+  if (cursor < path.length) {
+    cursor += 1;
+    render();
+    return;
+  }
+  if (path.length >= 20) return;
+  stepInfo.textContent = "正在读取下一步。";
+  const token = fillToken;
+  await pullUntil(path.length + 1);
+  if (token !== fillToken) return;
+  if (cursor < path.length) cursor += 1;
+  render();
+}
+
+async function goEnd() {
+  if (!root) return;
+  if (path.length < 20) stepInfo.textContent = "正在读取后面的步。";
+  const token = fillToken;
+  await pullUntil(20);
+  if (token !== fillToken) return;
+  cursor = path.length;
+  render();
+}
+
 document.getElementById("btnStart").onclick = () => { cursor = 0; render(); };
 document.getElementById("btnPrev").onclick = () => { if (cursor) { cursor -= 1; render(); } };
-document.getElementById("btnNext").onclick = () => { if (cursor < path.length) { cursor += 1; render(); } };
-document.getElementById("btnEnd").onclick = () => { cursor = path.length; render(); };
+document.getElementById("btnNext").onclick = () => { goNext(); };
+document.getElementById("btnEnd").onclick = () => { goEnd(); };
+
+function writeOpening(data, other) {
+  openingText = "标准开局 " + num(data.total) + " 局。";
+  if (other) {
+    openingText += pageFamily + "共 " + num(root.n + other.n) + " 局，其中" + pageMove + " "
+      + num(root.n) + " 局，" + pageOther + " " + num(other.n) + " 局。";
+  } else {
+    openingText += pageMove + " " + num(root.n) + " 局。";
+  }
+  openingText += "先走第一步。后面每一层的分叉分步读取，点一种就能在棋盘上试。";
+  lead.textContent = openingText;
+}
+
+function writeLongest(end) {
+  lead.textContent = openingText + "顺着最常见的一路走到" + plyName(mainLine.length - 1)
+    + "，这一路还有 " + num(end.n) + " 局，占" + pageMove + " " + pct(end.n, root.n)
+    + "%，占全部标准开局 " + pct(end.n, tree.total) + "%。";
+}
 
 fetch("move-tree.json")
   .then((response) => response.json())
-  .then(async (data) => {
+  .then((data) => {
     tree = data;
     root = data.children.find((item) => item.m === pageMove);
     if (!root) {
@@ -362,23 +445,28 @@ fetch("move-tree.json")
       return;
     }
     const other = pageOther ? data.children.find((item) => item.m === pageOther) : null;
-    root.c = await fetch("move-parts/" + root.part + ".json").then((response) => response.json());
-    mainLine = [root].concat(await extendFirst(root, 19));
-    path = mainLine.slice();
-    const end = mainLine[mainLine.length - 1];
-    let intro = "标准开局 " + num(data.total) + " 局。";
-    if (other) {
-      intro += pageFamily + "共 " + num(root.n + other.n) + " 局，其中" + pageMove + " "
-        + num(root.n) + " 局，" + pageOther + " " + num(other.n) + " 局。";
-    } else {
-      intro += pageMove + " " + num(root.n) + " 局。";
-    }
-    intro += "下面把" + pageMove + "每一步最常见的着法走到" + plyName(mainLine.length - 1)
-      + "，这一路还有 " + num(end.n) + " 局，占" + pageMove + " " + pct(end.n, root.n)
-      + "%，占全部标准开局 " + pct(end.n, data.total) + "%。一旁列出这一路每一层的 10 种分叉，点一种就能在棋盘上试。";
-    lead.textContent = intro;
+    path = [root];
+    mainLine = path;
+    writeOpening(data, other);
     cursor = 0;
     render();
+    const token = fillToken;
+    partReady = fetch("move-parts/" + root.part + ".json")
+      .then((response) => response.json())
+      .then(async (rows) => {
+        if (token !== fillToken) return;
+        root.c = rows;
+        absorbLoaded(root);
+        mainLine = path.slice();
+        render();
+        const rest = await extendFirst(root, 19);
+        if (token !== fillToken) return;
+        mainLine = [root].concat(rest);
+        path = mainLine.slice();
+        writeLongest(mainLine[mainLine.length - 1]);
+        render();
+      });
+    return partReady;
   })
   .catch(() => {
     lead.textContent = pageMove + "分叉没有加载成功。";

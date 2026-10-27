@@ -223,6 +223,12 @@ def render(letter, groups):
       <a href="/">首页</a>
       <a href="/qipu">棋谱</a>
       <a href="/ecco" aria-current="page">开局</a>
+      <a href="/moves">流行谱</a>
+      <a href="/zhongpao">中炮</a>
+      <a href="/bingqi">仙人指路</a>
+      <a href="/feixiang">飞相局</a>
+      <a href="/guogong">过宫炮</a>
+      <a href="/me">我的</a>
       <a href="/#memorize">背谱</a>
     </nav>
   </header>
