@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """给棋谱库做开局分类，在本机写入 catalog.db。
 
-catalog.db 不提交。克隆之后要先运行：python3 build_cat.py
+catalog.db 不提交。克隆之后运行：bash build.sh
 
 网页按「一级 / 二级」分页取，不把三十万局一次发给浏览器。
 版本 10 的棋谱只读开局几步；加密的旧谱交给 cchess。

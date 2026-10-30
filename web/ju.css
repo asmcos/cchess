@@ -1,0 +1,45 @@
+.stat {
+  margin: 0 0 14px;
+  color: var(--ink);
+  font-family: "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", serif;
+  font-size: 20px;
+}
+
+.ended {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.games { margin-top: 8px; }
+
+.games a {
+  display: block;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.games a:hover { color: var(--cinnabar-deep); }
+
+.games small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.more {
+  margin-top: 12px;
+  padding: 7px 12px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  background: transparent;
+  border: 1px solid #c9b496;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.more:hover { border-color: var(--cinnabar); color: var(--cinnabar-deep); }

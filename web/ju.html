@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>局面 · 象棋棋书</title>
+<meta name="description" content="从标准开局走子，查找库里同样的局面、下一步各有多少局，以及对应的棋谱。">
+<base href="/">
+<link rel="stylesheet" href="home.css">
+<link rel="stylesheet" href="zhongpao.css">
+<link rel="stylesheet" href="ju.css">
+</head>
+<body>
+<div class="sheet">
+  <header class="top">
+    <a class="brand" href="/">
+      <span class="seal">谱</span>
+      <span>
+        <strong>象棋棋书</strong>
+        <em>xqbook.cn</em>
+      </span>
+    </a>
+    <nav class="nav">
+      <a href="/">首页</a>
+      <a href="/qipu">棋谱</a>
+      <a href="/ecco">开局</a>
+      <a href="/moves">流行谱</a>
+      <a href="/zhongpao">中炮</a>
+      <a href="/bingqi">仙人指路</a>
+      <a href="/feixiang">飞相局</a>
+      <a href="/guogong">过宫炮</a>
+      <a href="/me">我的</a>
+      <a href="/ju" aria-current="page">局面</a>
+      <a href="/#memorize">背谱</a>
+    </nav>
+  </header>
+
+  <section class="hero solo">
+    <div>
+      <p class="eyebrow">按棋盘查找</p>
+      <h1>走到这一步，库里有多少局</h1>
+      <p class="lead" id="lead">从标准开局往下走。棋子位置相同的棋谱算同一个局面，右边列出下一步各有多少局。</p>
+    </div>
+  </section>
+
+  <section class="section play">
+    <div class="board-col">
+      <div class="board-frame">
+        <svg id="board" viewBox="0 0 440 486" role="img" aria-label="局面棋盘"></svg>
+      </div>
+      <p class="step-info" id="stepInfo">轮到红方</p>
+      <div class="play-btns">
+        <button type="button" id="btnPrev">上一步</button>
+        <button type="button" id="btnReset">重置</button>
+      </div>
+      <p class="path" id="pathLine">还没走子。</p>
+    </div>
+    <div id="result"></div>
+  </section>
+
+  <footer class="foot">
+    <div>象棋棋书 · xqbook.cn<br>局面页按棋子位置查找，主变里走到同一盘面的棋谱算在一起。</div>
+    <div class="friends">
+      <span>友情链接</span>
+      <a href="https://www.xqbase.com/" target="_blank" rel="noopener">象棋百科全书</a>
+    </div>
+  </footer>
+</div>
+<script src="ju.js"></script>
+</body>
+</html>

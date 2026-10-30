@@ -22,7 +22,7 @@ xqbook 是代码开源、使用免费的背谱打谱软件，同时也是一个�
 | --- | --- | --- |
 | 首页 | [https://xqbook.cn/](https://xqbook.cn/) | 说明这本棋书：延续 ECCO、五大类目录、怎么背谱 |
 | 棋谱 | [https://xqbook.cn/qipu](https://xqbook.cn/qipu) | 30 万+ 局：按书翻、按开局分类、自己走主变 |
-| 分叉 | [https://xqbook.cn/moves](https://xqbook.cn/moves) | 标准开局前 20 步，每层最常见的 10 种着法。第一步在 `web/move-tree.json`，点开后再取 `web/move-parts/`。用 `python3 build_move_tree.py` 重新生成 |
+| 分叉 | [https://xqbook.cn/moves](https://xqbook.cn/moves) | 标准开局前 20 步，每层最常见的 10 种着法。第一步在 `web/move-tree.json`，点开后再取 `web/move-parts/`。部署时 `bash build.sh` 会重新生成 |
 
 顶栏两边相同。「首页」留在本页，「棋谱」进入二级页。
 
@@ -56,16 +56,21 @@ ECCO 五大类在首页做成目录：
 
 ```bash
 pip install cchess
-python3 build_cat.py
+bash build.sh
 python3 server.py
 ```
 
-`catalog.db` 不在仓库里。它是本机用 `python3 build_cat.py` 扫完全库后生成的分类库，棋谱页的「分类」和「开局类型」都读它。没生成时仍可按书翻谱；分类要等这一步跑完。棋谱按层打开，分类按页打开。
+`bash build.sh` 扫完全库，依次写出三样东西：
+
+- `catalog.db`：棋谱页的「分类」和「开局类型」。不在仓库里。没生成时仍可按书翻谱，分类要等这一步跑完。棋谱按层打开，分类按页打开。
+- `pos.db`：局面页按棋盘查找同样的局面和下一步的局数。不在仓库里。没生成时页面会提示还在整理。
+- `web/move-tree.json` 和 `web/move-parts/`：流行谱、中炮、仙人指路、飞相局、过宫炮用的前 20 步分叉。
 
 默认端口 **8945**。
 
 - 首页：http://127.0.0.1:8945/
 - 棋谱：http://127.0.0.1:8945/qipu
+- 局面：http://127.0.0.1:8945/ju
 
 ---
 

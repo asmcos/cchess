@@ -18,6 +18,7 @@
 API:
     GET /api/tree?path=&offset=&limit=  -> 某一层目录（文件夹一次给全，棋谱按页给）
     GET /api/game?path=<相对路径.xqf> -> 解析该棋谱为 JSON
+    GET /api/pos?hash=&offset=&limit= -> 同一局面的局数、下一步和棋谱
 """
 import json
 import os
@@ -419,6 +420,49 @@ def cat_page(opening, opening2, offset, limit):
     }
 
 
+POS_DB = os.path.join(ROOT, "pos.db")
+POS_PAGE = 30
+
+
+def pos_lookup(hash_text, offset, limit):
+    if not os.path.isfile(POS_DB):
+        return {"error": "局面索引还在整理，稍后再打开"}
+    try:
+        digest = int(hash_text)
+    except (TypeError, ValueError):
+        return {"error": "局面编号不对"}
+    conn = sqlite3.connect(f"file:{POS_DB}?mode=ro", uri=True)
+    try:
+        row = conn.execute("SELECT n FROM pos WHERE hash = ?", (digest,)).fetchone()
+        if row is None:
+            return {"n": 0, "moves": [], "games": [], "offset": 0, "limit": limit, "total": 0}
+        moves = [
+            {"m": move, "n": count}
+            for move, count in conn.execute(
+                "SELECT move, n FROM nxt WHERE hash = ? ORDER BY n DESC, move",
+                (digest,),
+            )
+        ]
+        games = []
+        for path, ply in conn.execute(
+            "SELECT g.path, h.ply FROM hit h JOIN game g ON g.id = h.gid "
+            "WHERE h.hash = ? ORDER BY g.path LIMIT ? OFFSET ?",
+            (digest, limit, offset),
+        ):
+            name = os.path.splitext(os.path.basename(path))[0]
+            games.append({"path": path, "name": name, "ply": ply})
+    finally:
+        conn.close()
+    return {
+        "n": row[0],
+        "moves": moves,
+        "games": games,
+        "offset": offset,
+        "limit": limit,
+        "total": row[0],
+    }
+
+
 # ---------------------------------------------------------------------------
 # HTTP Handler
 # ---------------------------------------------------------------------------
@@ -514,6 +558,17 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"error": "标题表未生成，请先运行: python3 scan_titles.py"})
             return
 
+        if path == "/api/pos":
+            qs = parse_qs(parsed.query)
+            try:
+                offset = max(0, int(qs.get("offset", ["0"])[0] or 0))
+                limit = int(qs.get("limit", [str(POS_PAGE)])[0] or POS_PAGE)
+            except ValueError:
+                offset, limit = 0, POS_PAGE
+            limit = max(1, min(limit, 200))
+            self._json(pos_lookup(qs.get("hash", [""])[0], offset, limit))
+            return
+
         if path == "/api/game":
             qs = dict(kv.split("=", 1) for kv in parsed.query.split("&") if "=" in kv)
             rel = unquote_plus(qs.get("path", ""))
@@ -554,6 +609,8 @@ class Handler(BaseHTTPRequestHandler):
             path = "/guogong.html"
         elif path in ("/me", "/me/"):
             path = "/me.html"
+        elif path in ("/ju", "/ju/"):
+            path = "/ju.html"
 
         # 静态文件
         fp = os.path.normpath(os.path.join(WEB, path.lstrip("/")))

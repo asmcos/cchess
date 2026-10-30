@@ -229,6 +229,7 @@ def render(letter, groups):
       <a href="/feixiang">飞相局</a>
       <a href="/guogong">过宫炮</a>
       <a href="/me">我的</a>
+      <a href="/ju">局面</a>
       <a href="/#memorize">背谱</a>
     </nav>
   </header>

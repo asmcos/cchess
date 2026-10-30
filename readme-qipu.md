@@ -75,8 +75,8 @@ python3 server.py
 # 1. 安装依赖（仅需 cchess）
 pip install cchess
 
-# 2. 生成本机分类库 catalog.db（仓库里没有这个文件，必须自己生成）
-python3 build_cat.py
+# 2. 生成本机数据（catalog.db、pos.db 不在仓库里，必须自己生成）
+bash build.sh
 
 # 3. 启动服务（默认端口 8945）
 python3 server.py
@@ -85,7 +85,7 @@ python3 server.py
 open http://127.0.0.1:8945/qipu
 ```
 
-`catalog.db` 由 `python3 build_cat.py` 在本机生成，已写入 `.gitignore`，不会提交。没有它时仍可按书浏览。分类和开局过滤要等生成跑完。网页按页读取，不一次下完整库。
+`bash build.sh` 在本机生成 `catalog.db` 和 `pos.db`，这两个文件已写入 `.gitignore`，不会提交。没有 `catalog.db` 时仍可按书浏览。分类和开局过滤要等生成跑完。网页按页读取，不一次下完整库。
 
 ---
 
@@ -104,7 +104,7 @@ web/
 ├── app.js               # 棋盘、目录、分类、背谱、分叉
 server.py                # /qipu 指向本页；/api/tree、/api/cat、/api/game
 openings.py              # 一级 detect_opening + 二级 detect_opening2
-build_cat.py             # 本机生成 catalog.db（不提交），网页按页读取
+build.sh                # 部署时生成 catalog.db、pos.db 和流行谱分叉
 ```
 
 架构细节见 `docs/设计文档.md`。
